@@ -1,0 +1,11 @@
+const mongoose = require('mongoose');
+
+const TransactionSchema = new mongoose.Schema({
+    merchant: String,
+    date: String,
+    amount: Number,
+    jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', default: null },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+});
+
+module.exports = mongoose.model('Transaction', TransactionSchema);

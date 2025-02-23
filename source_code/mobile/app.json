@@ -1,0 +1,37 @@
+{
+  "app": {
+    "welcome_msg": "Welcome! You have been granted some free tokens! Please view the Preferences tab to learn how to use the app.",
+    "theme": {
+      "red": "#F9063C",
+      "blue": "#849bff",
+      "creme": "#FFFFF1"
+    },
+    "api": "http://172.20.10.3:3001",
+    "email": "TemplateApp@template.example"
+  },
+  "expo": {
+    "name": "Expense App",
+    "extra": {
+      "eas": {
+        "projectId": "87a4bf12-e548-49ed-9d9f-fac23095b269"
+      }
+    },
+    "owner": "peterbuo",
+    "slug": "expense-app",
+    "ios": {
+      "bundleIdentifier": "com.builtbypeter.expenseapp"
+    },
+
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./icon.png",
+          "color": "#ffffff",
+          "sounds": ["./notif.wav"]
+        }
+      ]
+    ]
+
+  }
+}
