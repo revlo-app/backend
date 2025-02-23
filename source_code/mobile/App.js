@@ -5,6 +5,8 @@ import Login from './Components/Login';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect } from 'react'
+import { Provider as PaperProvider } from 'react-native-paper';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import config from "./app.json"
 const BASE_URL = config.app.api
@@ -306,7 +308,8 @@ if (showSplash)
   if (authenticated)
   {
     return (
-      <>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+      <PaperProvider>
           {/* Navigation is the actual Screen which gets displayed based on the tab cosen */}
           <Navigation uid = {user._id} help = {showHelpModal} deleteAccount = {deleteAccount} subscribed = {subscribed} purchase = {purchase} logout = {logOut} tokens = {tokens}></Navigation>
           
@@ -373,7 +376,8 @@ if (showSplash)
               </TouchableWithoutFeedback>
             </View>
           </Modal>
-        </>
+        </PaperProvider>
+        </GestureHandlerRootView>
     );
   }
   return(

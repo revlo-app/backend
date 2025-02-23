@@ -263,22 +263,48 @@ pingUrl();
   
   // Jobs
   router.get('/jobs', async (req, res) => {
+
+      try {
       const { userId } = req.query;
+
       const jobs = await Job.find({ userId }).populate('expenses');
       res.json(jobs);
+
+      }
+      catch (e)
+      {
+        console.log(e)
+      }
+
   });
   
   router.post('/jobs', async (req, res) => {
+      try
+      {
       const { name, client, userId } = req.body;
+      
+
       await Job.create({ name, client, userId, income: 0, expenses: [] });
+      }
+      catch (e)
+      {
+        console.log(e)
+      }
       res.sendStatus(200);
+
   });
   
   router.post('/jobs/add_income', async (req, res) => {
-      const { jobId, income } = req.body;
-      await Job.findByIdAndUpdate(jobId, { $inc: { income } });
+      const { jobId, amount, negative } = req.body;
+      await Job.findByIdAndUpdate(jobId, { $inc: { "income": negative? -amount : amount } });
       res.sendStatus(200);
   });
+
+  router.post('/jobs/add_expense', async (req, res) => {
+    const { jobId, amount, negative } = req.body;
+    await Job.findByIdAndUpdate(jobId, { $inc: { "costs": negative? -amount:amount } });
+    res.sendStatus(200);
+});
   
   // Transactions
   router.get('/transactions', async (req, res) => {
@@ -300,6 +326,29 @@ pingUrl();
       await Job.findByIdAndUpdate(jobId, { $pull: { expenses: transactionId } });
       res.sendStatus(200);
   });
+
+  // Delete a job
+router.delete('/jobs/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+      await Job.findByIdAndDelete(id);
+      res.send('Job deleted successfully');
+  } catch (err) {
+      res.status(500).send('Failed to delete job');
+  }
+});
+
+// Update a job
+router.put('/jobs/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, client } = req.body;
+  try {
+      await Job.findByIdAndUpdate(id, { name, client });
+      res.send('Job updated successfully');
+  } catch (err) {
+      res.status(500).send('Failed to update job');
+  }
+});
   
 
   async function isSubscribed(user_id) {

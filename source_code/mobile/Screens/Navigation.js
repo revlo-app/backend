@@ -8,14 +8,15 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Transactions from './Transactions';
 import Jobs from './Jobs';
 import Settings from './Settings';
+import Preferences from './Preferences';
 
 const MyTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    primary: config.app.theme.red, // Tab icon tint
-    background: config.app.theme.blue, // background color is what?
-    card: config.app.theme.creme, // Creme: top and bottom theme
+    primary: config.app.theme.purple, // Tab icon tint
+    // background: config.app.theme.blue,
+    // card: config.app.theme.creme, // Creme: top and bottom theme
     text: 'black', 
     border: 'gray', // thin lines around creme 
   },
@@ -38,12 +39,12 @@ const Navigation = (props) => {
             let iconName;
             
             if (route.name === 'Jobs') {
-              iconName = focused ? 'cart' : 'cart-outline';
+              iconName = focused ? 'construct' : 'construct-outline';
             } else if (route.name === 'Transactions') {
-              iconName = focused ? 'list' : 'list-outline';
+              iconName = focused ? 'card' : 'card-outline';
             }
             else if (route.name === 'Settings') {
-              iconName = focused ? 'list' : 'list-outline';
+              iconName = focused ? 'settings' : 'settings-outline';
             }
             
             return <Icon name={iconName} size={size} color={color} />;
@@ -52,12 +53,12 @@ const Navigation = (props) => {
           //headerShown: false, // Hide the header if not needed
         })}
       >
-        <Tab.Screen name="Transactions" children={()=>
-            <Transactions userId = {props.uid}/>}/>
+        {/* <Tab.Screen name="Transactions" children={()=>
+            <Transactions userId = {props.uid}/>}/> */}
         <Tab.Screen name="Jobs" children={()=>
             <Jobs userId = {props.uid}/>}/>
         <Tab.Screen name="Settings" children={()=>
-            <Settings userId = {props.uid}/>}/>
+            <Preferences userId = {props.uid} deleteAccount = {props.deleteAccount} logout = {props.logout}/>}/>
       </Tab.Navigator>
     </NavigationContainer>
   );

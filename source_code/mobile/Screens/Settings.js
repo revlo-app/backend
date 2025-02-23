@@ -7,17 +7,18 @@ const API_URL = config.app.api
 import * as Linking from 'expo-linking';
 
 const Settings = ({ userId }) => {
-    const [authUrl, setAuthUrl] = useState('');
+    const [authUrl, setAuthUrl] = useState(`https://auth.truelayer.com/?response_type=code&client_id=expenseapp-3634f9&scope=info%20accounts%20transactions&redirect_uri=https://console.truelayer.com/redirect-page`);
 
-    useEffect(() => {
-        fetch(`${API_URL}/create_link`)
-            .then(res => res.json())
-            .then(data => setAuthUrl(data.authUrl))
-            .catch(err => console.error('Failed to fetch auth link', err));
-    }, []);
+    // useEffect(() => {
+    //     fetch(`${API_URL}/create_link`)
+    //         .then(res => res.json())
+    //         .then(data => setAuthUrl(data.authUrl))
+    //         .catch(err => console.error('Failed to fetch auth link', err));
+    // }, []);
 
     const handleConnectCard = () => {
         if (authUrl) {
+            console.log(authUrl)
             Linking.openURL(authUrl);
         } else {
             Alert.alert('Error', 'Failed to load authorization link.');
