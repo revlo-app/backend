@@ -12,6 +12,7 @@
   var axios = require('axios')
   const bcrypt = require("bcrypt");
   const nodemailer = require('nodemailer');
+  const rates = require('./rates');
 
   // DB connection
   dbConnect()
@@ -260,51 +261,180 @@ pingUrl();
           res.status(500).json({ error: 'Failed to handle callback' });
       }
   });
+
+  // update user's state value
+  router.post('/updateState', async (req, res) => {
+    const { userId, state } = req.body;
+    
+    // Check if required fields are provided
+    if (!userId || !state) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    try {
+      const updatedUser = await User.findByIdAndUpdate(
+        userId, 
+        { state: state },
+        { new: true, runValidators: true }
+      );
+      
+      if (!updatedUser) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      res.status(200).json({ message: 'State updated successfully' });
+    } catch (error) {
+      console.error('Failed to update state:', error);
+      res.status(500).json({ error: 'Failed to update state' });
+    }
+  });
+
+
+  // Tax calculator
+
+  router.post('/calculate-tax', (req, res) => {
+    const { income, expenses, stateCode } = req.body;
+
+    if (typeof income !== 'number' || typeof expenses !== 'number' || !stateCode) {
+        return res.status(400).json({ error: 'Invalid input' });
+    }
+
+    try {
+        const result = calculateQuarterlyTaxes(income, expenses, stateCode);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to calculate taxes' });
+    }
+});
+
+const calculateFederalTax = (taxableIncome) => {
+    let federalTax = 0;
+    let remainingIncome = taxableIncome;
+
+    for (let i = rates.federalTaxBrackets.length - 1; i >= 0; i--) {
+        const { rate, income } = rates.federalTaxBrackets[i];
+        if (remainingIncome > income) {
+            federalTax += (remainingIncome - income) * rate;
+            remainingIncome = income;
+        }
+    }
+
+    return federalTax;
+};
+
+const calculateQuarterlyTaxes = (income, expenses, stateCode) => {
+    const netIncome = income - expenses;
+
+    // Self-employment tax (15.3%) and 50% deductible (federal only)
+    const selfEmploymentTax = netIncome * rates.selfEmploymentTaxRate;
+    const deductibleSelfEmploymentTax = selfEmploymentTax * rates.selfEmploymentTaxDeductionRate;
+
+    // QBI deduction (20% of qualified business income)
+    const qbiDeduction = Math.max(0, netIncome * rates.qbiDeductionRate);
+
+    // Calculate federal taxable income with standard and QBI deductions
+    const federalTaxableIncome = Math.max(0, netIncome - rates.standardDeduction - qbiDeduction - deductibleSelfEmploymentTax);
+
+    // Federal taxes include income tax and self-employment tax
+    const federalIncomeTax = calculateFederalTax(federalTaxableIncome);
+    const totalFederalTax = federalIncomeTax + selfEmploymentTax;
+
+    // State taxes (self-employment tax does not apply to state)
+    const stateTaxRate = rates.stateTaxRates[stateCode.toUpperCase()] || 0;
+    const stateTaxableIncome = Math.max(0, netIncome - rates.standardDeduction - qbiDeduction);
+    const stateTax = stateTaxableIncome * stateTaxRate;
+
+    return {
+        federal: totalFederalTax,
+        state: stateTax
+    };
+};
+
+
   
   // Jobs
-  router.get('/jobs', async (req, res) => {
-
-      try {
-      const { userId } = req.query;
-
-      const jobs = await Job.find({ userId }).populate('expenses');
+  // Get all jobs for a user
+router.get('/jobs', async (req, res) => {
+  try {
+      const jobs = await Job.find({ userId: req.query.userId });
       res.json(jobs);
-
-      }
-      catch (e)
-      {
-        console.log(e)
-      }
-
-  });
-  
-  router.post('/jobs', async (req, res) => {
-      try
-      {
-      const { name, client, userId } = req.body;
-      
-
-      await Job.create({ name, client, userId, income: 0, expenses: [] });
-      }
-      catch (e)
-      {
-        console.log(e)
-      }
-      res.sendStatus(200);
-
-  });
-  
-  router.post('/jobs/add_income', async (req, res) => {
-      const { jobId, amount, negative } = req.body;
-      await Job.findByIdAndUpdate(jobId, { $inc: { "income": negative? -amount : amount } });
-      res.sendStatus(200);
-  });
-
-  router.post('/jobs/add_expense', async (req, res) => {
-    const { jobId, amount, negative } = req.body;
-    await Job.findByIdAndUpdate(jobId, { $inc: { "costs": negative? -amount:amount } });
-    res.sendStatus(200);
+  } catch (err) {
+      res.status(500).json({ message: err.message });
+  }
 });
+  
+  // Create a new job
+router.post('/jobs', async (req, res) => {
+  const job = new Job({
+      name: req.body.name,
+      client: req.body.client,
+      userId: req.body.userId,
+      transactions: []
+  });
+
+
+  try {
+      const newJob = await job.save();
+      res.status(201).json(newJob);
+  } catch (err) {
+      res.status(400).json({ message: err.message });
+  }
+});
+
+
+// Add a transaction to a job
+router.post('/jobs/transaction', async (req, res) => {
+  try {
+      const { jobId, transaction } = req.body;
+      
+      // Validate transaction amount
+      if (!transaction.amount || isNaN(transaction.amount)) {
+          return res.status(400).json({ message: 'Invalid transaction amount' });
+      }
+
+      const job = await Job.findById(jobId);
+      if (!job) {
+          return res.status(404).json({ message: 'Job not found' });
+      }
+
+      // Add the new transaction
+      job.transactions.push({
+          type: transaction.type,
+          amount: transaction.amount,
+          note: transaction.note || '',
+          date: transaction.date || new Date()
+      });
+
+      const updatedJob = await job.save();
+      res.json(updatedJob);
+  } catch (err) {
+      res.status(400).json({ message: err.message });
+  }
+});
+
+  
+//   router.post('/jobs/add_income', async (req, res) => {
+//     const { jobId, amount, note, negative } = req.body;
+//     const transaction = {
+//         amount: negative ? -amount : amount,
+//         note,
+//         date: new Date(),
+//     };
+//     await Job.findByIdAndUpdate(jobId, { $push: { income: transaction } });
+//     res.sendStatus(200);
+// });
+
+// router.post('/jobs/add_expense', async (req, res) => {
+//     const { jobId, amount, note, negative } = req.body;
+//     const transaction = {
+//         amount: negative ? -amount : amount,
+//         note,
+//         date: new Date(),
+//     };
+//     await Job.findByIdAndUpdate(jobId, { $push: { expenses: transaction } });
+//     res.sendStatus(200);
+// });
+
   
   // Transactions
   router.get('/transactions', async (req, res) => {
@@ -347,6 +477,25 @@ router.put('/jobs/:id', async (req, res) => {
       res.send('Job updated successfully');
   } catch (err) {
       res.status(500).send('Failed to update job');
+  }
+});
+
+
+router.patch('/jobs/:id', async (req, res) => {
+  try {
+      const { id } = req.params;
+      const updatedData = req.body;
+
+      const updatedJob = await Job.findByIdAndUpdate(id, updatedData, { new: true });
+      
+      if (!updatedJob) {
+          return res.status(404).json({ message: 'Job not found' });
+      }
+
+      res.json(updatedJob);
+  } catch (err) {
+      console.error('Failed to update job', err);
+      res.status(500).json({ message: 'Failed to update job' });
   }
 });
   

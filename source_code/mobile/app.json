@@ -6,7 +6,7 @@
       "blue": "#849bff",
       "creme": "#FFFFF1"
     },
-    "api": "http://172.20.10.3:3001",
+    "api": "http://10.0.21.21:3001",
     "email": "TemplateApp@template.example"
   },
   "expo": {

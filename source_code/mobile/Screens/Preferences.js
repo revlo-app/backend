@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Platform, View, Text, Button, StyleSheet, TextInput, TouchableWithoutFeedback, Keyboard, Switch, TouchableOpacity, Alert } from 'react-native';
+import { Platform, View, Text, StyleSheet, TextInput, TouchableWithoutFeedback, Keyboard, Switch, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import {Button} from 'react-native-paper'
 
 const Preferences = (props) => {
   if (true) {
@@ -84,21 +85,11 @@ const Preferences = (props) => {
           </View>
 
           <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.buttonWithBorder, styles.customButton]}
-              onPress={() => {handleDeletion()}}
-            >
-              <Text style={styles.buttonText}>Confirm Deletion</Text>
-            </TouchableOpacity>
+            <Button mode="contained" onPress={handleDeletion}>Confirm Deletion</Button>
+           
+            <Button mode="contained" onPress={()=> {setDelAccount(false)}}>Cancel</Button>
 
-         
 
-            <TouchableOpacity
-              style={[styles.buttonWithBorder, styles.customButton]}
-              onPress={()=> {setDelAccount(false)}}
-            >
-              <Text style={styles.buttonText}>Cancel</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -113,21 +104,12 @@ const Preferences = (props) => {
 
             
           <View style={styles.buttonContainer}>
+
             
-            <TouchableOpacity
-              style={[styles.buttonWithBorder, styles.customButton]}
-              onPress={handleLogout}
-            >
-              <Text style={styles.buttonText}>Logout</Text>
-            </TouchableOpacity>
+            <Button mode="contained" onPress={handleLogout}>Logout</Button>
+            <Button mode="contained" onPress={()=> {setDelAccount(true)}}>Delete Account</Button>
 
-            <TouchableOpacity
-              style={[styles.buttonWithBorder, styles.customButton]}
-              onPress={() => {setDelAccount(true)}}
-            >
-              <Text style={styles.buttonText}>Delete Account</Text>
-            </TouchableOpacity>
-
+            
 
 
           </View>
@@ -208,6 +190,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: Platform.OS === 'ios' && Platform.isPad ? 30 : 10
+    
   },
 });
 

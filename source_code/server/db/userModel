@@ -3,9 +3,11 @@ const uniqueValidator = require('mongoose-unique-validator');
 
 const UserSchema = new mongoose.Schema({
 
-company: {
+
+state: {
     type: String,
-    maxlength: [100, "Company name too long"]
+    maxlength: [100, "state name too long"],
+    default: 'NY'
 },
     
 email: {
