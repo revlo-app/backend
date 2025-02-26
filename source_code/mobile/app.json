@@ -6,7 +6,7 @@
       "blue": "#849bff",
       "creme": "#FFFFF1"
     },
-    "api": "https://revlo-app.onrender.com:3001",
+    "api": "https://revlo-app.onrender.com",
     "email": "TemplateApp@template.example"
   },
   "expo": {
