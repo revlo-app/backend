@@ -6,7 +6,7 @@
       "blue": "#849bff",
       "creme": "#FFFFF1"
     },
-    "api": "http://10.0.21.21:3001",
+    "api": "https://revlo-app.onrender.com:3001",
     "email": "TemplateApp@template.example"
   },
   "expo": {
@@ -16,9 +16,11 @@
         "projectId": "87a4bf12-e548-49ed-9d9f-fac23095b269"
       }
     },
+    "icon": "./assets/icon.png",
     "owner": "peterbuo",
     "slug": "expense-app",
     "ios": {
+      "icon": "./assets/icon.png",
       "bundleIdentifier": "com.builtbypeter.expenseapp"
     },
 
