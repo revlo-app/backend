@@ -83,7 +83,7 @@ export default function App() {
   const [textInputValue, setTextInputValue] = useState('');
 
   // My state
-  const [state, setState] = useState('')
+  const [state, setState] = useState()
 
   
 

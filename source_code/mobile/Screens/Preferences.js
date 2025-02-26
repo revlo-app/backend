@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Platform, View, Text, StyleSheet, TextInput, TouchableWithoutFeedback, Keyboard, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import * as Location from 'expo-location';
 import { 
   Button, 
   Modal, 
@@ -21,7 +22,7 @@ const Preferences = (props) => {
   const [password, setPassword] = useState('');
   const [delAccount, setDelAccount] = useState(false);
   // Update this line to use props.state
-const [selectedStateCode, setSelectedStateCode] = useState(props.state || 'NY');
+const [selectedStateCode, setSelectedStateCode] = useState(props.state);
 
 
 
@@ -135,6 +136,80 @@ const handleStateSelect = (stateCode) => {
   // Make sure your setState prop function is called with the new value
   props.setState(stateCode);
 };
+
+const getStateFromCoordinates = async (latitude, longitude) => {
+  try {
+    // Use reverse geocoding to get address details from coordinates
+    const response = await Location.reverseGeocodeAsync({
+      latitude,
+      longitude,
+    });
+
+    // Extract the region/state information
+    if (response.length > 0) {
+      const { region } = response[0];
+      
+      // Map of full state names to their 2-character codes
+      const stateMap = {
+        'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR',
+        'California': 'CA', 'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE',
+        'Florida': 'FL', 'Georgia': 'GA', 'Hawaii': 'HI', 'Idaho': 'ID',
+        'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA', 'Kansas': 'KS',
+        'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+        'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS',
+        'Missouri': 'MO', 'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV',
+        'New Hampshire': 'NH', 'New Jersey': 'NJ', 'New Mexico': 'NM', 'New York': 'NY',
+        'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH', 'Oklahoma': 'OK',
+        'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+        'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT',
+        'Vermont': 'VT', 'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV',
+        'Wisconsin': 'WI', 'Wyoming': 'WY', 'District of Columbia': 'DC'
+      };
+      
+      return stateMap[region] || region;
+    }
+    return 'NY';
+  } catch (error) {
+    console.error('Error getting state from coordinates:', error);
+    return 'NY';
+
+  }
+};
+
+useEffect(() => {
+  (async () => {
+    if (props.state) return;
+    
+    // Request permission to access location
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    
+    if (status !== 'granted') {
+      console.error('Location permission not granted');
+      setSelectedStateCode('NY');
+      props.setState('NY');
+
+      return;
+    }
+
+      // Get the current location
+      const location = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = location.coords;
+      
+      // Get the state code from coordinates
+      const code = await getStateFromCoordinates(latitude, longitude);
+      
+      if (code) {
+        setSelectedStateCode(code);
+        props.setState(code);
+      }
+      else {
+        setSelectedStateCode('NY');
+        props.setState('NY');
+      }
+    
+  })();
+}, []);
+
 
   const showLogoutModal = () => setLogoutModalVisible(true);
   const hideLogoutModal = () => setLogoutModalVisible(false);

@@ -231,7 +231,7 @@ export default function LoginScreen(props) {
         
         if (res.data.new_user)
         {
-          alert(config.app.welcome_msg)
+          // alert(config.app.welcome_msg)
         }
       }
       

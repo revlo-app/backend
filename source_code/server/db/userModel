@@ -7,7 +7,6 @@ const UserSchema = new mongoose.Schema({
 state: {
     type: String,
     maxlength: [100, "state name too long"],
-    default: 'NY'
 },
     
 email: {
