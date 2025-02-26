@@ -7,6 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useEffect } from 'react'
 import { Provider as PaperProvider } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import ConfettiScreen from './Components/ConfettiScreen.js';
+
 
 import config from "./app.json"
 const BASE_URL = config.app.api
@@ -26,9 +28,13 @@ export default function App() {
 
   const [authenticated, setAuthenticated] = useState(false)
   const [subscribed, setSubscribed] = useState(false)
+  const [isNewUser, setIsNewUser] = useState(false)
 
   // Booting state - while we try to connect to server.
   const [showSplash, setShowSplash] = useState(true)
+
+  // Confetti effect
+  const [triggerEffect, setTriggerEffect] = useState(false);
   
 
 
@@ -46,6 +52,9 @@ export default function App() {
 
   // Help modal text: Contact message
   const [textInputValue, setTextInputValue] = useState('');
+
+  // My state
+  const [state, setState] = useState('')
 
   
 
@@ -192,15 +201,27 @@ export default function App() {
   }
 
 // middleware Login from login screen: Must set token because it definitely is not set
-function loggedIn(token)
+function loggedIn(token, isNewUser)
 {
   AsyncStorage.setItem('token', token)
-  logIn(token) // stores user data locally
+  logIn(token, isNewUser) // stores user data locally
 }
 
-// Log in: load user data and authenticate
-function logIn(token)
+// function to update a user's state to a new string in the mongo database for the user
+function updateState(newState)
 {
+  axios.post(`${BASE_URL}/updateState`, {userId: user._id, state: newState})
+  .then(() => {
+    setState(newState)
+  })
+  .catch((e) => {
+    console.log('Error updating state:', e)
+  })
+}
+// Log in: load user data and authenticate
+function logIn(token, isNewUser)
+{
+  setIsNewUser(isNewUser ?? false)
   
   // get user info from the database. This can load paid features, etc
   axios.post(`${BASE_URL}/user`, {user_id: token})
@@ -211,6 +232,7 @@ function logIn(token)
 
     // bundle all above into single object
     setUser(res.data.user)
+    setState(res.data.user.state)
     
 
     // Allow purchasing subscriptions
@@ -311,8 +333,13 @@ if (showSplash)
       <GestureHandlerRootView style={{ flex: 1 }}>
       <PaperProvider>
           {/* Navigation is the actual Screen which gets displayed based on the tab cosen */}
-          <Navigation uid = {user._id} help = {showHelpModal} deleteAccount = {deleteAccount} subscribed = {subscribed} purchase = {purchase} logout = {logOut} tokens = {tokens}></Navigation>
+          <Navigation setTriggerEffect= {setTriggerEffect} setIsNewUser = {setIsNewUser} isNewUser = {isNewUser}state = {state} setState={updateState} uid = {user._id} help = {showHelpModal} deleteAccount = {deleteAccount} subscribed = {subscribed} purchase = {purchase} logout = {logOut} tokens = {tokens}></Navigation>
           
+          <ConfettiScreen
+            trigger={triggerEffect}
+            onComplete={() => {setTriggerEffect(false)}}
+            message="Instant Match!"
+          />
           
           {/* Help Modal */}
           <Modal

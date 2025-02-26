@@ -9,6 +9,7 @@ import Transactions from './Transactions';
 import Jobs from './Jobs';
 import Settings from './Settings';
 import Preferences from './Preferences';
+import JobsWithTutorial from '../Components/JobsWithTutorial';
 
 const MyTheme = {
   ...DefaultTheme,
@@ -56,9 +57,9 @@ const Navigation = (props) => {
         {/* <Tab.Screen name="Transactions" children={()=>
             <Transactions userId = {props.uid}/>}/> */}
         <Tab.Screen name="Jobs" children={()=>
-            <Jobs userId = {props.uid}/>}/>
+            <JobsWithTutorial setTriggerEffect = {props.setTriggerEffect} setIsNewUser = {props.setIsNewUser} userId = {props.uid} state = {props.state} isNewUser = {props.isNewUser}/>}/>
         <Tab.Screen name="Settings" children={()=>
-            <Preferences userId = {props.uid} deleteAccount = {props.deleteAccount} logout = {props.logout}/>}/>
+            <Preferences state = {props.state} setState = {props.setState} userId = {props.uid} deleteAccount = {props.deleteAccount} logout = {props.logout}/>}/>
       </Tab.Navigator>
     </NavigationContainer>
   );

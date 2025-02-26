@@ -8,7 +8,11 @@ import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler'
 
 const API_URL = config.app.api;
 
-const Jobs = ({ userId }) => {
+const Jobs = ({ userId, state, isNewUser }) => {
+    if (isNewUser)
+    {
+        return null;
+    }
     const [jobs, setJobs] = useState([]);
     const [filteredJobs, setFilteredJobs] = useState([]);
     const [newJobName, setNewJobName] = useState('');
@@ -26,6 +30,10 @@ const Jobs = ({ userId }) => {
     const [yearMenuVisible, setYearMenuVisible] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isJob, setIsJob] = useState(false); // Are we deleting a job or a transaction
+    const [tax, setTax] = useState({})
+    const [totalIncome, setTotalIncome] = useState(0);
+    const [totalExpenses, setTotalExpenses] = useState(0);
+    const [totalRevenue, setTotalRevenue] = useState(0);
     const swipeableRefs = useRef({});
 
     // Year should default to current year if not provided
@@ -68,11 +76,63 @@ const Jobs = ({ userId }) => {
         }
     }, [jobs]);
 
+    // Calculate totals when filtered jobs or summary mode changes
+    useEffect(() => {
+        const { income, expenses } = calculateTotals(summaryMode);
+        setTotalIncome(income);
+        setTotalExpenses(expenses);
+        setTotalRevenue(income - expenses);
+    }, [filteredJobs, summaryMode]);
+
+    // Calculate tax when income, expenses, or state changes
+    useEffect(() => {
+        const fetchTaxes = async () => {
+            if (jobs.length > 0) {
+                try {
+                    const taxData = await calculateTaxes(totalIncome, totalExpenses, state);
+                    if (taxData) {
+                        setTax(taxData);
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch taxes', err);
+                }
+            }
+        };
+        
+        fetchTaxes();
+    }, [totalIncome, totalExpenses, state]);
+
     function fetchJobs() {
         fetch(`${API_URL}/jobs?userId=${userId}`)
             .then(res => res.json())
-            .then(data => setJobs(data))
+            .then(data => {
+                setJobs(data);
+            })
             .catch(err => console.error('Failed to fetch jobs', err));
+    }
+
+    async function calculateTaxes(income, expenses, state) {
+        try {
+            const response = await fetch(`${API_URL}/calculate-tax`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    income: income,
+                    expenses: expenses,
+                    stateCode: state
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data;
+        } catch (err) {
+            console.error('Failed to fetch taxes', err);
+            return null;
+        }
     }
 
     // Filter jobs and their transactions by year
@@ -322,24 +382,12 @@ const Jobs = ({ userId }) => {
         }, { income: 0, expenses: 0 });
     };
 
-    const { income: totalIncome, expenses: totalExpenses } = calculateTotals(summaryMode);
-    const totalRevenue = totalIncome - totalExpenses;
-
     const cycleSummaryMode = () => {
         const modes = ['total', 'q1', 'q2', 'q3', 'q4'];
         const currentIndex = modes.indexOf(summaryMode);
         setSummaryMode(modes[(currentIndex + 1) % modes.length]);
     };
 
-    const getSummaryTitle = () => {
-        switch (summaryMode) {
-            case 'q1': return `Q1 (Jan 1-Mar 31) ${displayYear}`;
-            case 'q2': return `Q2 (Apr 1-May 31) ${displayYear}`;
-            case 'q3': return `Q3 (Jun 1-Aug 31) ${displayYear}`;
-            case 'q4': return `Q4 (Sep 1-Dec 31) ${displayYear}`;
-            default: return `Total ${displayYear}`;
-        }
-    };
 
     const TransactionList = ({ transactions, type, job }) => (
         <View style={{ flex: 1, marginTop: 10 }}>
@@ -728,14 +776,24 @@ const Jobs = ({ userId }) => {
                         backgroundColor: '#f5f5f5',
                         elevation: 4
                     }}>
-                        <Text style={{ 
-                            textAlign: 'center', 
-                            fontSize: 12, 
-                            color: '#666',
-                            marginBottom: 5 
-                        }}>
-                            {getSummaryTitle()}
-                        </Text>
+                        <View style = {{display: 'flex', flexDirection: "row", justifyContent: "space-between"}}>
+                            <Text style={{ 
+                                textAlign: 'center', 
+                                fontSize: 12, 
+                                color: '#666',
+                                marginBottom: 5 
+                            }}>
+                                {summaryMode.includes('q') ? `Q${summaryMode.slice(1)}` : 'Total'}
+                            </Text>
+                            <Text style={{ 
+                                textAlign: 'center', 
+                                fontSize: 12, 
+                                color: '#666',
+                                marginBottom: 5 
+                            }}>
+                                {`Federal Tax: ${tax?.federal?.toFixed(2) ?? 0}    ${state} Tax: ${tax?.state?.toFixed(2) ?? 0}`}
+                            </Text>
+                        </View>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                             <View style={{ alignItems: 'center' }}>
                                 <Text style={{ fontSize: 16 }}>Income</Text>
