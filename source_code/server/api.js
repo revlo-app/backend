@@ -60,6 +60,37 @@ const pingUrl = () => {
 cron.schedule('*/10 * * * *', pingUrl);
 pingUrl();
 
+
+// Function to send push notifications
+const sendPushNotification = async () => {
+  try {
+    const users = await User.find({ expoPushToken: { $exists: true, $ne: null } });
+    const messages = users.map(user => ({
+      to: user.expoPushToken,
+      sound: 'default',
+      title: 'Quarterly Tax Reminder!',
+      body: 'Quarterly taxes are due on the 15th. Open the app to see your estimate!',
+    }));
+
+    if (messages.length > 0) {
+      await axios.post('https://exp.host/--/api/v2/push/send', messages, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      console.log('Push notifications sent successfully.');
+    } else {
+      console.log('No push tokens found.');
+    }
+  } catch (error) {
+    console.error('Error sending push notifications:', error);
+  }
+};
+
+// Schedule to run at 9 AM on April 1st, June 1st, September 1st, and January 1st
+cron.schedule('0 9 1 4,6,9,1 *', () => {
+  console.log('Running scheduled push notification task...');
+  sendPushNotification();
+});
+
   async function maintainUsers()
   {
     const currentDate = new Date();

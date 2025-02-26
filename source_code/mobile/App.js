@@ -8,6 +8,9 @@ import { useState, useEffect } from 'react'
 import { Provider as PaperProvider } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import ConfettiScreen from './Components/ConfettiScreen.js';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+const API_URL = config.app.api
 
 
 import config from "./app.json"
@@ -25,6 +28,32 @@ const APPL_API = "appl_iymEcrjJXGyUyYLMNqGXZYiaKvP"
 const GOOG_API = "goog_NxhhAZhHJkJSHDfsFAPtYIyEClP"
 
 export default function App() {
+
+  const registerForPushNotificationsAsync = async () => {
+    let token;
+    if (Device.isDevice) {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+        }
+        if (finalStatus !== 'granted') {
+            Alert.alert('Failed to get push token for push notification!');
+            return;
+        }
+        token = (await Notifications.getExpoPushTokenAsync()).data;
+
+        await fetch(`${API_URL}/notifications/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user._id, token: token }),
+        });
+    } else {
+        Alert.alert('Must use physical device for Push Notifications');
+    }
+};
+
 
   const [authenticated, setAuthenticated] = useState(false)
   const [subscribed, setSubscribed] = useState(false)
@@ -204,6 +233,7 @@ export default function App() {
 function loggedIn(token, isNewUser)
 {
   AsyncStorage.setItem('token', token)
+  registerForPushNotificationsAsync();
   logIn(token, isNewUser) // stores user data locally
 }
 
