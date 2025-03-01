@@ -488,6 +488,19 @@ router.post('/jobs/transaction', async (req, res) => {
       res.sendStatus(200);
   });
 
+  // get a job
+router.get('/jobs/:id', async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+    res.json(job);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
   // Delete a job
 router.delete('/jobs/:id', async (req, res) => {
   const { id } = req.params;
