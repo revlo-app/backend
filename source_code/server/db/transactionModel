@@ -17,6 +17,10 @@ const transactionSchema = new mongoose.Schema({
     date: {
         type: Date,
         default: Date.now
+    },
+    taxExempt: {
+        type: Boolean,
+        default: false
     }
 });
 
