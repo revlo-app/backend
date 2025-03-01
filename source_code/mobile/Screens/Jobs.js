@@ -3,14 +3,14 @@ import {
     View, Text, TextInput, ScrollView, Alert, Modal, TouchableOpacity, TouchableWithoutFeedback, Keyboard
 } from 'react-native';
 import config from '../app.json';
-import { Card, Button, Divider, Menu, Provider } from 'react-native-paper';
+import { Card, Button, Divider, Menu, Provider, Checkbox } from 'react-native-paper';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
+import BouncyCheckbox from "react-native-bouncy-checkbox";
 
 const API_URL = config.app.api;
 
 const Jobs = ({ userId, state, isNewUser }) => {
-    if (isNewUser)
-    {
+    if (isNewUser) {
         return null;
     }
     const [jobs, setJobs] = useState([]);
@@ -24,13 +24,14 @@ const Jobs = ({ userId, state, isNewUser }) => {
     const [showModal, setShowModal] = useState(false);
     const [modalType, setModalType] = useState('');
     const [isNegative, setIsNegative] = useState(false);
+    const [isTaxExempt, setIsTaxExempt] = useState(false);
     const [summaryMode, setSummaryMode] = useState('total'); // 'q1', 'q2', 'q3', 'q4', 'total'
     const [availableYears, setAvailableYears] = useState([]);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [yearMenuVisible, setYearMenuVisible] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isJob, setIsJob] = useState(false); // Are we deleting a job or a transaction
-    const [tax, setTax] = useState({})
+    const [totalTax, setTotalTax] = useState({ federal: 0, state: 0 });
     const [totalIncome, setTotalIncome] = useState(0);
     const [totalExpenses, setTotalExpenses] = useState(0);
     const [totalRevenue, setTotalRevenue] = useState(0);
@@ -82,44 +83,65 @@ const Jobs = ({ userId, state, isNewUser }) => {
         setTotalIncome(income);
         setTotalExpenses(expenses);
         setTotalRevenue(income - expenses);
-    }, [filteredJobs, summaryMode]);
-
-    // Calculate tax when income, expenses, or state changes
-    useEffect(() => {
-        const fetchTaxes = async () => {
-            if (jobs.length > 0) {
-                try {
-                    const taxData = await calculateTaxes(totalIncome, totalExpenses, state);
-                    if (taxData) {
-                        setTax(taxData);
-                    }
-                } catch (err) {
-                    console.error('Failed to fetch taxes', err);
-                }
-            }
-        };
         
-        fetchTaxes();
-    }, [totalIncome, totalExpenses, state]);
+        // Sum up all job taxes for the summary
+        let fedTaxSum = 0;
+        let stateTaxSum = 0;
+        
+        filteredJobs.forEach(job => {
+            if (job.tax) {
+                fedTaxSum += job.tax.federal || 0;
+                stateTaxSum += job.tax.state || 0;
+            }
+        });
+        
+        setTotalTax({
+            federal: fedTaxSum,
+            state: stateTaxSum
+        });
+    }, [filteredJobs, summaryMode]);
 
     function fetchJobs() {
         fetch(`${API_URL}/jobs?userId=${userId}`)
             .then(res => res.json())
             .then(data => {
+                // Initialize tax calculation for jobs without tax data
+                const jobsWithTaxes = data.map(job => {
+                    if (!job.tax) {
+                        return calculateJobTax(job, state);
+                    }
+                    return job;
+                });
+                
+                // First set the jobs with any existing tax data
                 setJobs(data);
+                
+                // Then update tax calculations for all jobs
+                Promise.all(jobsWithTaxes).then(updatedJobs => {
+                    setJobs(updatedJobs);
+                });
             })
             .catch(err => console.error('Failed to fetch jobs', err));
     }
 
-    async function calculateTaxes(income, expenses, state) {
+    async function calculateJobTax(job, stateCode) {
+        // Get taxable income (exclude tax exempt transactions)
+        const taxableIncome = job.transactions
+            .filter(tx => tx.type === 'income' && !tx.taxExempt)
+            .reduce((sum, tx) => sum + tx.amount, 0);
+            
+        const expenses = job.transactions
+            .filter(tx => tx.type === 'expense')
+            .reduce((sum, tx) => sum + tx.amount, 0);
+        
         try {
             const response = await fetch(`${API_URL}/calculate-tax`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    income: income,
+                    income: taxableIncome,
                     expenses: expenses,
-                    stateCode: state
+                    stateCode: stateCode
                 })
             });
 
@@ -127,11 +149,28 @@ const Jobs = ({ userId, state, isNewUser }) => {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const data = await response.json();
-            return data;
+            const taxData = await response.json();
+            
+            // Add tax data to job object
+            const updatedJob = {
+                ...job,
+                tax: taxData
+            };
+            
+            // Update the job in the database with tax information
+            await fetch(`${API_URL}/jobs/${job._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tax: taxData })
+            });
+            
+            return updatedJob;
         } catch (err) {
-            console.error('Failed to fetch taxes', err);
-            return null;
+            console.error('Failed to calculate taxes for job', job.name, err);
+            return {
+                ...job,
+                tax: { federal: 0, state: 0 }
+            };
         }
     }
 
@@ -171,7 +210,8 @@ const Jobs = ({ userId, state, isNewUser }) => {
                 name: newJobName, 
                 client: newClient, 
                 userId,
-                transactions: [] 
+                transactions: [],
+                tax: { federal: 0, state: 0 }
             }),
         })
             .then(() => {
@@ -192,6 +232,7 @@ const Jobs = ({ userId, state, isNewUser }) => {
         setShowModal(true);
         setAmount('');
         setNote('');
+        setIsTaxExempt(false);
         if (swipeableRefs.current[swipeableKey]) {
             swipeableRefs.current[swipeableKey].close();
         }
@@ -208,45 +249,94 @@ const Jobs = ({ userId, state, isNewUser }) => {
     const handleTransactionPress = (transaction, job) => {
         setSelectedJob(job);
         setSelectedTransaction(transaction);
-        setAmount(transaction.amount.toString());
+        setAmount(Math.abs(transaction.amount).toString());
         setNote(transaction.note || '');
         setIsNegative(transaction.amount < 0);
+        setIsTaxExempt(transaction.taxExempt || false);
         setModalType('editTransaction');
         setShowModal(true);
     };
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
+        // Make sure amount is properly parsed as a float
+        const parsedAmount = parseFloat(amount);
+        if (isNaN(parsedAmount)) {
+            Alert.alert('Error', 'Please enter a valid number');
+            return;
+        }
+    
         const transaction = {
             type: modalType,
-            amount: parseFloat(amount) * (isNegative ? -1 : 1),
+            amount: parsedAmount * (isNegative ? -1 : 1),
             note: note || '',
-            date: new Date().toISOString()
+            date: new Date().toISOString(),
+            taxExempt: modalType === 'income' ? isTaxExempt : false
         };
-
-        fetch(`${API_URL}/jobs/transaction`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                jobId: selectedJob._id, 
-                transaction 
-            }),
-        })
-            .then(() => {
-                setAmount('');
-                setNote('');
-                fetchJobs();
-                setShowModal(false);
-                setIsNegative(false);
-            })
-            .catch(err => Alert.alert('Error', 'Failed to add transaction'));
+    
+        try {
+            // Add transaction to job
+            const response = await fetch(`${API_URL}/jobs/transaction`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    jobId: selectedJob._id, 
+                    transaction 
+                }),
+            });
+            
+            // Check if the response is OK and contains valid JSON
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Server response:', errorText);
+                throw new Error(`Failed to add transaction. Status: ${response.status}`);
+            }
+            
+            const responseData = await response.json();
+            
+            // Get updated job
+            const updatedJobResponse = await fetch(`${API_URL}/jobs/${selectedJob._id}`);
+            
+            if (!updatedJobResponse.ok) {
+                const errorText = await updatedJobResponse.text();
+                console.error('Server response when fetching updated job:', errorText);
+                throw new Error(`Failed to fetch updated job. Status: ${updatedJobResponse.status}`);
+            }
+            
+            const updatedJob = await updatedJobResponse.json();
+            
+            // Recalculate taxes for this job
+            const jobWithTax = await calculateJobTax(updatedJob, state);
+            
+            // Update jobs array with the updated job including tax data
+            setJobs(prevJobs => prevJobs.map(job => 
+                job._id === jobWithTax._id ? jobWithTax : job
+            ));
+            
+            setAmount('');
+            setNote('');
+            setIsTaxExempt(false);
+            setShowModal(false);
+            setIsNegative(false);
+        } catch (err) {
+            Alert.alert('Error', `Failed to add transaction: ${err.message}`);
+            console.error('Error adding transaction:', err);
+        }
     };
 
-    const handleUpdateTransaction = () => {
+    const handleUpdateTransaction = async () => {
+        // Make sure amount is properly parsed as a float
+        const parsedAmount = parseFloat(amount);
+        if (isNaN(parsedAmount)) {
+            Alert.alert('Error', 'Please enter a valid number');
+            return;
+        }
+        
         // Create updated transaction object
         const updatedTransaction = {
             ...selectedTransaction,
-            amount: Math.abs(parseFloat(amount)) * (isNegative ? -1 : 1),
-            note: note || ''
+            amount: Math.abs(parsedAmount) * (isNegative ? -1 : 1),
+            note: note || '',
+            taxExempt: selectedTransaction.type === 'income' ? isTaxExempt : false
         };
         
         // Find the transaction index in the job's transactions array
@@ -265,25 +355,54 @@ const Jobs = ({ userId, state, isNewUser }) => {
         const updatedTransactions = [...selectedJob.transactions];
         // Replace the transaction at the found index
         updatedTransactions[transactionIndex] = updatedTransaction;
+    
+        try {
+            // Update job with modified transaction
+            const response = await fetch(`${API_URL}/jobs/${selectedJob._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    transactions: updatedTransactions 
+                })
+            });
+            
+            if (!response.ok) {
 
-        
-        fetch(`${API_URL}/jobs/${selectedJob._id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                ...selectedJob,
-                transactions: updatedTransactions 
-            })
-        })
-            .then(() => {
-                fetchJobs();
-                setShowModal(false);
-                setSelectedTransaction(null);
-            })
-            .catch(() => Alert.alert('Error', 'Failed to update transaction'));
+                const errorText = await response.text();
+                console.error('Server response:', errorText);
+                throw new Error(`Failed to update transaction. Status: ${response.status}`);
+            }
+            
+            // Get updated job
+            const updatedJobResponse = await fetch(`${API_URL}/jobs/${selectedJob._id}`);
+            
+            if (!updatedJobResponse.ok) {
+                const errorText = await updatedJobResponse.text();
+                console.error('Server response when fetching updated job:', errorText);
+                throw new Error(`Failed to fetch updated job. Status: ${updatedJobResponse.status}`);
+            }
+            
+            const updatedJob = await updatedJobResponse.json();
+            
+            // Recalculate taxes for this job
+            const jobWithTax = await calculateJobTax(updatedJob, state);
+            
+            // Update jobs array with the updated job including tax data
+            setJobs(prevJobs => prevJobs.map(job => 
+                job._id === jobWithTax._id ? jobWithTax : job
+            ));
+            
+            setShowModal(false);
+            setSelectedTransaction(null);
+            setIsTaxExempt(false);
+            setIsNegative(false);
+
+        } catch (err) {
+            Alert.alert('Error', `Failed to update transaction: ${err.message}`);
+            console.error('Error updating transaction:', err);
+        }
     };
-
-    const handleDeleteTransaction = () => {
+    const handleDeleteTransaction = async () => {
         // Find the transaction index in the job's transactions array
         const transactionIndex = selectedJob.transactions.findIndex(
             tx => tx.date === selectedTransaction.date && 
@@ -299,32 +418,60 @@ const Jobs = ({ userId, state, isNewUser }) => {
         // Create a copy of the job's transactions without the deleted transaction
         const updatedTransactions = selectedJob.transactions.filter((_, index) => index !== transactionIndex);
         
-        fetch(`${API_URL}/jobs/${selectedJob._id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                ...selectedJob,
-                transactions: updatedTransactions 
-            })
-        })
-            .then(() => {
-                fetchJobs();
-                setShowModal(false);
-                setShowDeleteConfirm(false);
-                setSelectedTransaction(null);
-            })
-            .catch(() => Alert.alert('Error', 'Failed to delete transaction'));
+        try {
+            // Update job with modified transactions
+            const response = await fetch(`${API_URL}/jobs/${selectedJob._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    ...selectedJob,
+                    transactions: updatedTransactions 
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to delete transaction');
+            }
+            
+            // Get updated job
+            const updatedJobResponse = await fetch(`${API_URL}/jobs/${selectedJob._id}`);
+            const updatedJob = await updatedJobResponse.json();
+            
+            // Recalculate taxes for this job
+            const jobWithTax = await calculateJobTax(updatedJob, state);
+            
+            // Update jobs array with the updated job including tax data
+            setJobs(prevJobs => prevJobs.map(job => 
+                job._id === jobWithTax._id ? jobWithTax : job
+            ));
+            
+            setShowModal(false);
+            setShowDeleteConfirm(false);
+            setSelectedTransaction(null);
+        } catch (err) {
+            Alert.alert('Error', 'Failed to delete transaction');
+            console.error(err);
+        }
     };
 
-    const handleUpdateJob = () => {
-        fetch(`${API_URL}/jobs/${selectedJob._id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: selectedJob.name, client: selectedJob.client })
-        })
-            .then(fetchJobs)
-            .then(() => setShowModal(false))
-            .catch(() => Alert.alert('Error', 'Failed to update job'));
+    const handleUpdateJob = async () => {
+        try {
+            const response = await fetch(`${API_URL}/jobs/${selectedJob._id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: selectedJob.name, client: selectedJob.client })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to update job');
+            }
+            
+            fetchJobs();
+            setShowModal(false);
+        } catch (err) {
+            Alert.alert('Error', 'Failed to update job');
+            console.error(err);
+        }
     };
 
     const handleDeleteJob = () => {
@@ -388,12 +535,41 @@ const Jobs = ({ userId, state, isNewUser }) => {
         setSummaryMode(modes[(currentIndex + 1) % modes.length]);
     };
 
+    const handleAddTransactionFromJobModal = (transactionType) => {
+        // Close the current job modal
+        setShowModal(false);
+        
+        // Open a new transaction modal with the selected type
+        setTimeout(() => {
+            setModalType(transactionType);
+            setShowModal(true);
+            setAmount('');
+            setNote('');
+            setIsTaxExempt(false);
+        }, 300);
+    };
 
     const TransactionList = ({ transactions, type, job }) => (
         <View style={{ flex: 1, marginTop: 10 }}>
-            <Text style={{ fontSize: 16, fontWeight: 'bold', color: type === 'income' ? '#6750a4' : 'black', margin: 10, textAlign: "center" }}>
-                {type === 'income' ? 'Income' : 'Expenses'}
-            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: type === 'income' ? '#6750a4' : 'black', marginLeft: 10 }}>
+                    {type === 'income' ? 'Income' : 'Expenses'}
+                </Text>
+                <TouchableOpacity 
+                    onPress={() => handleAddTransactionFromJobModal(type)}
+                    style={{ 
+                        width: 24, 
+                        height: 24, 
+                        borderRadius: 12, 
+                        backgroundColor: config.app.theme.purple,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        marginRight: 10
+                    }}
+                >
+                    <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>+</Text>
+                </TouchableOpacity>
+            </View>
             {/* Fixed: Made the ScrollView properly scrollable with a fixed height */}
             <ScrollView 
                 nestedScrollEnabled 
@@ -425,7 +601,12 @@ const Jobs = ({ userId, state, isNewUser }) => {
                                         </Text>
                                     </View>
 
-                                    <Text style={{ fontSize: 12, color: '#666' }}>{tx.note}</Text>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                        <Text style={{ fontSize: 12, color: '#666' }}>{tx.note}</Text>
+                                        {tx.type === 'income' && tx.taxExempt && (
+                                            <Text style={{ fontSize: 10, color: '#888', fontStyle: 'italic' }}>Tax Exempt</Text>
+                                        )}
+                                    </View>
                                 </View>
                             </Card>
                         </TouchableOpacity>
@@ -558,6 +739,9 @@ const Jobs = ({ userId, state, isNewUser }) => {
                                     <View style={{ flex: 1 }}>
                                         <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{item.name}</Text>
                                         <Text>{item.client}</Text>
+                                        <Text style={{ fontSize: 12, color: '#666', marginTop: 5 }}>
+                                            Tax: ${((item.tax?.federal || 0) + (item.tax?.state || 0)).toFixed(2)}
+                                        </Text>
                                     </View>
                                     <View style={{ alignItems: 'flex-end', minWidth: 80 }}>
                                         <Text style={{ color: 'black' }}>
@@ -690,9 +874,9 @@ const Jobs = ({ userId, state, isNewUser }) => {
                                                         </TouchableOpacity>
                                                         <TextInput
                                                             placeholder="Amount"
-                                                            value={Math.abs(amount).toString()}
+                                                            value={amount}
                                                             onChangeText={setAmount}
-                                                            keyboardType="numeric"
+                                                            keyboardType="decimal-pad"
                                                             style={{ flex: 1, marginBottom: 10 }}
                                                             autoFocus
                                                         />
@@ -704,6 +888,20 @@ const Jobs = ({ userId, state, isNewUser }) => {
                                                         style={{ marginBottom: 20 }}
                                                         multiline
                                                     />
+
+{selectedTransaction && selectedTransaction.type === 'income' && (
+    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 15 }}>
+    <BouncyCheckbox
+        isChecked={isTaxExempt}
+        onPress={() => setIsTaxExempt(!isTaxExempt)}
+        fillColor={config.app.theme.purple} // Checked color
+        unfillColor="#fff" // Background when unchecked
+        text="Tax Exempt"
+        textStyle={{ textDecorationLine: "none", marginLeft: 8 }}
+    />
+</View>
+)}
+
                                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                                                         <Button 
                                                             mode="outlined" 
@@ -737,13 +935,13 @@ const Jobs = ({ userId, state, isNewUser }) => {
                                                             </Text>
                                                         </TouchableOpacity>
                                                         <TextInput
-                                                            placeholder={`Enter ${modalType === 'income' ? 'Income' : 'Expense'} Amount`}
-                                                            value={Math.abs(amount).toString()}
-                                                            onChangeText={setAmount}
-                                                            keyboardType="numeric"
-                                                            style={{ flex: 1, marginBottom: 10 }}
-                                                            autoFocus
-                                                        />
+    placeholder="Amount"
+    value={amount}
+    onChangeText={setAmount}
+    keyboardType="decimal-pad"
+    style={{ flex: 1, marginBottom: 10 }}
+    autoFocus
+/>
                                                     </View>
                                                     <TextInput
                                                         placeholder="Add a note (optional)"
@@ -752,6 +950,18 @@ const Jobs = ({ userId, state, isNewUser }) => {
                                                         style={{ marginBottom: 20 }}
                                                         multiline
                                                     />
+{modalType === 'income' && (
+    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 15 }}>
+    <BouncyCheckbox
+        isChecked={isTaxExempt}
+        onPress={() => setIsTaxExempt(!isTaxExempt)}
+        fillColor={config.app.theme.purple} // Checked color
+        unfillColor="#fff" // Background when unchecked
+        text="Tax Exempt"
+        textStyle={{ textDecorationLine: "none", marginLeft: 8 }}
+    />
+</View>
+)}
                                                     <Button 
                                                         mode="contained" 
                                                         onPress={handleConfirm}
@@ -791,7 +1001,7 @@ const Jobs = ({ userId, state, isNewUser }) => {
                                 color: '#666',
                                 marginBottom: 5 
                             }}>
-                                {`Federal Tax: ${tax?.federal?.toFixed(2) ?? 0}    ${state} Tax: ${tax?.state?.toFixed(2) ?? 0}`}
+                                {`Federal Tax: ${totalTax?.federal?.toFixed(2) ?? 0}    ${state} Tax: ${totalTax?.state?.toFixed(2) ?? 0}`}
                             </Text>
                         </View>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
