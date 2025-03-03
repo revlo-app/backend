@@ -338,6 +338,8 @@ cron.schedule('0 9 1 4,6,9,1 *', () => {
     }
 });
 
+
+// Instead we do this locally now, and provide the user with rates object
 const calculateFederalTax = (taxableIncome) => {
     let federalTax = 0;
     let remainingIncome = taxableIncome;
@@ -739,6 +741,7 @@ router.patch('/jobs/:id', async (req, res) => {
 
           response.status(200).send({
             user: excludeFields(user.toObject()),
+            rates: rates
           });
         }
         else
