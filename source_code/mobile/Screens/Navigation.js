@@ -57,7 +57,7 @@ const Navigation = (props) => {
         {/* <Tab.Screen name="Transactions" children={()=>
             <Transactions userId = {props.uid}/>}/> */}
         <Tab.Screen name="Jobs" children={()=>
-            <JobsWithTutorial setTriggerEffect = {props.setTriggerEffect} setIsNewUser = {props.setIsNewUser} userId = {props.uid} state = {props.state} isNewUser = {props.isNewUser}/>}/>
+            <JobsWithTutorial rates = {props.rates} setTriggerEffect = {props.setTriggerEffect} setIsNewUser = {props.setIsNewUser} userId = {props.uid} state = {props.state} isNewUser = {props.isNewUser}/>}/>
         <Tab.Screen name="Settings" children={()=>
             <Preferences state = {props.state} setState = {props.setState} userId = {props.uid} deleteAccount = {props.deleteAccount} logout = {props.logout}/>}/>
       </Tab.Navigator>

@@ -15,7 +15,6 @@ const API_URL = config.app.api
 
 import config from "./app.json"
 const BASE_URL = config.app.api
-
 import Purchases from 'react-native-purchases';
 
 
@@ -71,6 +70,7 @@ export default function App() {
 
   // user object we get from logging in
   const [user, setUser] = useState()
+  const [rates, setRates] = useState()
   
 
   const [init, setInit] = useState(true)
@@ -257,6 +257,8 @@ function logIn(token, isNewUser)
   axios.post(`${BASE_URL}/user`, {user_id: token})
   .then(async (res) => {
 
+    setRates(res.data.rates)
+
     setTokens(res.data.tokens)
     setSubscribed(res.data.user.subscribed)
 
@@ -363,7 +365,7 @@ if (showSplash)
       <GestureHandlerRootView style={{ flex: 1 }}>
       <PaperProvider>
           {/* Navigation is the actual Screen which gets displayed based on the tab cosen */}
-          <Navigation setTriggerEffect= {setTriggerEffect} setIsNewUser = {setIsNewUser} isNewUser = {isNewUser}state = {state} setState={updateState} uid = {user._id} help = {showHelpModal} deleteAccount = {deleteAccount} subscribed = {subscribed} purchase = {purchase} logout = {logOut} tokens = {tokens}></Navigation>
+          <Navigation rates = {rates} setTriggerEffect= {setTriggerEffect} setIsNewUser = {setIsNewUser} isNewUser = {isNewUser}state = {state} setState={updateState} uid = {user._id} help = {showHelpModal} deleteAccount = {deleteAccount} subscribed = {subscribed} purchase = {purchase} logout = {logOut} tokens = {tokens}></Navigation>
           
           <ConfettiScreen
             trigger={triggerEffect}

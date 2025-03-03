@@ -11,6 +11,7 @@
   },
   "expo": {
     "name": "Revlo - Revenue Flow",
+    "version": "2.1.0",
     "extra": {
       "eas": {
         "projectId": "87a4bf12-e548-49ed-9d9f-fac23095b269"
@@ -21,7 +22,8 @@
     "slug": "expense-app",
     "ios": {
       "icon": "./assets/icon.png",
-      "bundleIdentifier": "com.builtbypeter.expenseapp"
+      "bundleIdentifier": "com.builtbypeter.expenseapp",
+      "buildNumber": "3"
     },
 
     "plugins": [

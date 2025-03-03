@@ -9,7 +9,8 @@ import BouncyCheckbox from "react-native-bouncy-checkbox";
 
 const API_URL = config.app.api;
 
-const Jobs = ({ userId, state, isNewUser }) => {
+const Jobs = ({ userId, state, isNewUser, rates }) => {
+
     if (isNewUser) {
         return null;
     }
@@ -84,14 +85,35 @@ const Jobs = ({ userId, state, isNewUser }) => {
         setTotalExpenses(expenses);
         setTotalRevenue(income - expenses);
         
-        // Sum up all job taxes for the summary
+        // Sum up job taxes for the summary - but only count the proportional amount for the quarter
         let fedTaxSum = 0;
         let stateTaxSum = 0;
         
+        // Get the period bounds
+        const { start, end } = getQuarterBounds(summaryMode);
+        
         filteredJobs.forEach(job => {
             if (job.tax) {
-                fedTaxSum += job.tax.federal || 0;
-                stateTaxSum += job.tax.state || 0;
+                // Calculate total yearly income for this job (for proportional tax calculation)
+                const yearlyTaxableIncome = job.transactions
+                    .filter(tx => tx.type === 'income' && !tx.taxExempt)
+                    .reduce((sum, tx) => sum + tx.amount, 0);
+                    
+                // Calculate the income for the selected period
+                const periodTaxableIncome = job.transactions
+                    .filter(tx => {
+                        const txDate = new Date(tx.date);
+                        return tx.type === 'income' && !tx.taxExempt && 
+                               txDate >= start && txDate <= end;
+                    })
+                    .reduce((sum, tx) => sum + tx.amount, 0);
+                
+                // Calculate proportional tax for this period (if there's income to tax)
+                if (yearlyTaxableIncome > 0) {
+                    const proportion = periodTaxableIncome / yearlyTaxableIncome;
+                    fedTaxSum += (job.tax.federal || 0) * proportion;
+                    stateTaxSum += (job.tax.state || 0) * proportion;
+                }
             }
         });
         
@@ -124,6 +146,53 @@ const Jobs = ({ userId, state, isNewUser }) => {
             .catch(err => console.error('Failed to fetch jobs', err));
     }
 
+    
+    // Local function to calculate tax
+    // need to provide rates object from login
+    const calculateTaxes = (income, expenses, stateCode) => {
+        const netIncome = income - expenses;
+    
+        // Self-employment tax (15.3%) and 50% deductible (federal only)
+        const selfEmploymentTax = netIncome * rates.selfEmploymentTaxRate;
+        const deductibleSelfEmploymentTax = selfEmploymentTax * rates.selfEmploymentTaxDeductionRate;
+    
+        // QBI deduction (20% of qualified business income)
+        const qbiDeduction = Math.max(0, netIncome * rates.qbiDeductionRate);
+    
+        // Calculate federal taxable income with standard and QBI deductions
+        const federalTaxableIncome = Math.max(0, netIncome - rates.standardDeduction - qbiDeduction - deductibleSelfEmploymentTax);
+    
+        // Federal taxes include income tax and self-employment tax
+        const federalIncomeTax = calculateFederalTax(federalTaxableIncome);
+        const totalFederalTax = federalIncomeTax + selfEmploymentTax;
+    
+        // State taxes (self-employment tax does not apply to state)
+        const stateTaxRate = rates.stateTaxRates[stateCode.toUpperCase()] || 0;
+        const stateTaxableIncome = Math.max(0, netIncome - rates.standardDeduction - qbiDeduction);
+        const stateTax = stateTaxableIncome * stateTaxRate;
+    
+        return {
+            federal: totalFederalTax,
+            state: stateTax
+        };
+    };
+
+    // Instead we do this locally now, and provide the user with rates object
+const calculateFederalTax = (taxableIncome) => {
+    let federalTax = 0;
+    let remainingIncome = taxableIncome;
+
+    for (let i = rates.federalTaxBrackets.length - 1; i >= 0; i--) {
+        const { rate, income } = rates.federalTaxBrackets[i];
+        if (remainingIncome > income) {
+            federalTax += (remainingIncome - income) * rate;
+            remainingIncome = income;
+        }
+    }
+
+    return federalTax;
+};
+
     async function calculateJobTax(job, stateCode) {
         // Get taxable income (exclude tax exempt transactions)
         const taxableIncome = job.transactions
@@ -133,6 +202,23 @@ const Jobs = ({ userId, state, isNewUser }) => {
         const expenses = job.transactions
             .filter(tx => tx.type === 'expense')
             .reduce((sum, tx) => sum + tx.amount, 0);
+
+            const taxData = calculateTaxes(taxableIncome, expenses, stateCode)
+            
+            // Add tax data to job object
+            const updatedJob = {
+                ...job,
+                tax: taxData
+            };
+            
+            // Update the job in the database with tax information
+            fetch(`${API_URL}/jobs/${job._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tax: taxData })
+            });
+            
+            return updatedJob;
         
         try {
             const response = await fetch(`${API_URL}/calculate-tax`, {
@@ -272,6 +358,9 @@ const Jobs = ({ userId, state, isNewUser }) => {
             date: new Date().toISOString(),
             taxExempt: modalType === 'income' ? isTaxExempt : false
         };
+
+        // Hide modal immediately before API call
+        setShowModal(false);
     
         try {
             // Add transaction to job
@@ -315,7 +404,6 @@ const Jobs = ({ userId, state, isNewUser }) => {
             setAmount('');
             setNote('');
             setIsTaxExempt(false);
-            setShowModal(false);
             setIsNegative(false);
         } catch (err) {
             Alert.alert('Error', `Failed to add transaction: ${err.message}`);
@@ -356,6 +444,12 @@ const Jobs = ({ userId, state, isNewUser }) => {
         // Replace the transaction at the found index
         updatedTransactions[transactionIndex] = updatedTransaction;
     
+        // Hide modal immediately
+        setShowModal(false);
+        setSelectedTransaction(null);
+        setIsTaxExempt(false);
+        setIsNegative(false);
+        
         try {
             // Update job with modified transaction
             const response = await fetch(`${API_URL}/jobs/${selectedJob._id}`, {
@@ -367,7 +461,6 @@ const Jobs = ({ userId, state, isNewUser }) => {
             });
             
             if (!response.ok) {
-
                 const errorText = await response.text();
                 console.error('Server response:', errorText);
                 throw new Error(`Failed to update transaction. Status: ${response.status}`);
@@ -391,17 +484,12 @@ const Jobs = ({ userId, state, isNewUser }) => {
             setJobs(prevJobs => prevJobs.map(job => 
                 job._id === jobWithTax._id ? jobWithTax : job
             ));
-            
-            setShowModal(false);
-            setSelectedTransaction(null);
-            setIsTaxExempt(false);
-            setIsNegative(false);
-
         } catch (err) {
             Alert.alert('Error', `Failed to update transaction: ${err.message}`);
             console.error('Error updating transaction:', err);
         }
     };
+    
     const handleDeleteTransaction = async () => {
         // Find the transaction index in the job's transactions array
         const transactionIndex = selectedJob.transactions.findIndex(
@@ -517,10 +605,11 @@ const Jobs = ({ userId, state, isNewUser }) => {
         return filteredJobs.reduce((totals, job) => {
             job.transactions.forEach(tx => {
                 const txDate = new Date(tx.date);
+                // Check if transaction date is within the selected quarter/period bounds
                 if (txDate >= start && txDate <= end) {
                     if (tx.type === 'income') {
                         totals.income += tx.amount;
-                    } else {
+                    } else if (tx.type === 'expense') {
                         totals.expenses += tx.amount;
                     }
                 }
@@ -528,7 +617,6 @@ const Jobs = ({ userId, state, isNewUser }) => {
             return totals;
         }, { income: 0, expenses: 0 });
     };
-
     const cycleSummaryMode = () => {
         const modes = ['total', 'q1', 'q2', 'q3', 'q4'];
         const currentIndex = modes.indexOf(summaryMode);
@@ -604,7 +692,7 @@ const Jobs = ({ userId, state, isNewUser }) => {
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                                         <Text style={{ fontSize: 12, color: '#666' }}>{tx.note}</Text>
                                         {tx.type === 'income' && tx.taxExempt && (
-                                            <Text style={{ fontSize: 10, color: '#888', fontStyle: 'italic' }}>Tax Exempt</Text>
+                                            <Text style={{ fontSize: 10, color: '#888', fontStyle: 'italic' }}>Exempt</Text>
                                         )}
                                     </View>
                                 </View>
@@ -735,40 +823,51 @@ const Jobs = ({ userId, state, isNewUser }) => {
                             }
                         >
                             <Card style={{ margin: 10, padding: 15 }} onPress={() => handleJobPress(item)}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{item.name}</Text>
-                                        <Text>{item.client}</Text>
-                                        <Text style={{ fontSize: 12, color: '#666', marginTop: 5 }}>
-                                            Tax: ${((item.tax?.federal || 0) + (item.tax?.state || 0)).toFixed(2)}
-                                        </Text>
-                                    </View>
-                                    <View style={{ alignItems: 'flex-end', minWidth: 80 }}>
-                                        <Text style={{ color: 'black' }}>
-                                            ${item.transactions
-                                                .filter(tx => tx.type === 'income')
-                                                .reduce((sum, tx) => sum + (tx.amount), 0)
-                                                .toFixed(2)}
-                                        </Text>
-                                        <Text style={{ color: 'gray' }}>
-                                            ${item.transactions
-                                                .filter(tx => tx.type === 'expense')
-                                                .reduce((sum, tx) => sum + (tx.amount), 0)
-                                                .toFixed(2)}
-                                        </Text>
-                                        <Text style={{ color: '#6750a4' }}>
-                                            ${(
-                                                item.transactions
-                                                    .filter(tx => tx.type === 'income')
-                                                    .reduce((sum, tx) => sum + (tx.amount), 0) -
-                                                item.transactions
-                                                    .filter(tx => tx.type === 'expense')
-                                                    .reduce((sum, tx) => sum + (tx.amount), 0)
-                                            ).toFixed(2)}
-                                        </Text>
-                                    </View>
-                                </View>
-                            </Card>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+        <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{item.name}</Text>
+            <Text>{item.client}</Text>
+            <Text style={{ fontSize: 12, color: '#666', marginTop: 5 }}>
+                Tax: ${((item.tax?.federal || 0) + (item.tax?.state || 0)).toFixed(2)}
+            </Text>
+        </View>
+        <View style={{ alignItems: 'flex-end', minWidth: 80 }}>
+            <Text style={{ color: 'black' }}>
+                ${item.transactions
+                    .filter(tx => tx.type === 'income')
+                    .reduce((sum, tx) => sum + (tx.amount), 0)
+                    .toFixed(2)}
+            </Text>
+            <Text style={{ color: 'gray' }}>
+                ${item.transactions
+                    .filter(tx => tx.type === 'expense')
+                    .reduce((sum, tx) => sum + (tx.amount), 0)
+                    .toFixed(2)}
+            </Text>
+            <Text style={{ color: '#6750a4' }}>
+                ${(
+                    item.transactions
+                        .filter(tx => tx.type === 'income')
+                        .reduce((sum, tx) => sum + (tx.amount), 0) -
+                    item.transactions
+                        .filter(tx => tx.type === 'expense')
+                        .reduce((sum, tx) => sum + (tx.amount), 0)
+                ).toFixed(2)}
+            </Text>
+            <Text style={{ color: '#6750a4', fontSize: 12 }}>
+                Adj: ${(
+                    item.transactions
+                        .filter(tx => tx.type === 'income')
+                        .reduce((sum, tx) => sum + (tx.amount), 0) -
+                    item.transactions
+                        .filter(tx => tx.type === 'expense')
+                        .reduce((sum, tx) => sum + (tx.amount), 0) -
+                    ((item.tax?.federal || 0) + (item.tax?.state || 0))
+                ).toFixed(2)}
+            </Text>
+        </View>
+    </View>
+</Card>
                         </Swipeable>
                     ))}
 
