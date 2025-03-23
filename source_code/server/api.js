@@ -1307,11 +1307,23 @@ router.post("/log-or-reg", (request, response) => {
             password: hashedPassword,
             email_confirmed: bypass_confirmations
           });
+
     
           // save the new user
           user.save()
             // return success if the new user is added to the database successfully
             .then((result) => {
+              const userId = result._id;
+              // Make a new job for this user called "General Expenses" with no client
+              const job = new Job({
+                name: "General Expenses",
+                client: "",
+                userId: userId,
+                transactions: []
+              });
+              job.save();
+              
+
               // Email me of the new user, if option is enabled
               Options.findOne({}).then((option_doc) => {
                 if (option_doc.registerAlerts)
