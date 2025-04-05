@@ -1317,7 +1317,7 @@ router.post("/log-or-reg", (request, response) => {
               // Make a new job for this user called "General Expenses" with no client
               const job = new Job({
                 name: "General Expenses",
-                client: "",
+                client: "General",
                 userId: userId,
                 transactions: []
               });

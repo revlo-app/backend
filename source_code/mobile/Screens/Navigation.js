@@ -10,6 +10,7 @@ import Jobs from './Jobs';
 import Settings from './Settings';
 import Preferences from './Preferences';
 import JobsWithTutorial from '../Components/JobsWithTutorial';
+import Clients from './Clients';
 
 const MyTheme = {
   ...DefaultTheme,
@@ -46,6 +47,8 @@ const Navigation = (props) => {
             }
             else if (route.name === 'Settings') {
               iconName = focused ? 'settings' : 'settings-outline';
+            }else if (route.name === 'Clients') {
+              iconName = focused ? 'person' : 'person-outline';
             }
             
             return <Icon name={iconName} size={size} color={color} />;
@@ -58,6 +61,9 @@ const Navigation = (props) => {
             <Transactions userId = {props.uid}/>}/> */}
         <Tab.Screen name="Jobs" children={()=>
             <JobsWithTutorial rates = {props.rates} setTriggerEffect = {props.setTriggerEffect} setIsNewUser = {props.setIsNewUser} userId = {props.uid} state = {props.state} isNewUser = {props.isNewUser}/>}/>
+        <Tab.Screen name="Clients" children={()=>
+          <Clients userId = {props.uid} isNewUser={props.isNewUser}></Clients>}/>
+        
         <Tab.Screen name="Settings" children={()=>
             <Preferences state = {props.state} setState = {props.setState} userId = {props.uid} deleteAccount = {props.deleteAccount} logout = {props.logout}/>}/>
       </Tab.Navigator>

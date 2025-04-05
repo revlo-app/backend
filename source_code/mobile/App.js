@@ -11,6 +11,8 @@ import ConfettiScreen from './Components/ConfettiScreen.js';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 const API_URL = config.app.api
+import * as Location from 'expo-location';
+
 
 
 import config from "./app.json"
@@ -27,6 +29,76 @@ const APPL_API = "appl_iymEcrjJXGyUyYLMNqGXZYiaKvP"
 const GOOG_API = "goog_NxhhAZhHJkJSHDfsFAPtYIyEClP"
 
 export default function App() {
+
+  const getStateFromCoordinates = async (latitude, longitude) => {
+    try {
+      // Use reverse geocoding to get address details from coordinates
+      const response = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+  
+      // Extract the region/state information
+      if (response.length > 0) {
+        const { region } = response[0];
+        
+        // Map of full state names to their 2-character codes
+        const stateMap = {
+          'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR',
+          'California': 'CA', 'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE',
+          'Florida': 'FL', 'Georgia': 'GA', 'Hawaii': 'HI', 'Idaho': 'ID',
+          'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA', 'Kansas': 'KS',
+          'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+          'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS',
+          'Missouri': 'MO', 'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV',
+          'New Hampshire': 'NH', 'New Jersey': 'NJ', 'New Mexico': 'NM', 'New York': 'NY',
+          'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH', 'Oklahoma': 'OK',
+          'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+          'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT',
+          'Vermont': 'VT', 'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV',
+          'Wisconsin': 'WI', 'Wyoming': 'WY', 'District of Columbia': 'DC'
+        };
+        
+        return stateMap[region] || region;
+      }
+      return 'NY';
+    } catch (error) {
+      console.error('Error getting state from coordinates:', error);
+      return 'NY';
+  
+    }
+  };
+
+  useEffect(() => {
+    (async () => {
+      if (state) return;
+      
+      // Request permission to access location
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status !== 'granted') {
+        console.error('Location permission not granted');
+        setState('NY');
+  
+        return;
+      }
+  
+        // Get the current location
+        const location = await Location.getCurrentPositionAsync({});
+        const { latitude, longitude } = location.coords;
+        
+        // Get the state code from coordinates
+        const code = await getStateFromCoordinates(latitude, longitude);
+        
+        if (code) {
+          setState(code);
+        }
+        else {
+          setState('NY');
+        }
+      
+    })();
+  }, []);
 
   const registerForPushNotificationsAsync = async () => {
     let token;

@@ -78,45 +78,67 @@ const Jobs = ({ userId, state, isNewUser, rates }) => {
         }
     }, [jobs]);
 
-    // Calculate totals when filtered jobs or summary mode changes
     useEffect(() => {
         const { income, expenses } = calculateTotals(summaryMode);
         setTotalIncome(income);
         setTotalExpenses(expenses);
         setTotalRevenue(income - expenses);
         
-        // Sum up job taxes for the summary - but only count the proportional amount for the quarter
-        let fedTaxSum = 0;
-        let stateTaxSum = 0;
-        
         // Get the period bounds
         const { start, end } = getQuarterBounds(summaryMode);
         
-        filteredJobs.forEach(job => {
-            if (job.tax) {
-                // Calculate total yearly income for this job (for proportional tax calculation)
-                const yearlyTaxableIncome = job.transactions
-                    .filter(tx => tx.type === 'income' && !tx.taxExempt)
-                    .reduce((sum, tx) => sum + tx.amount, 0);
-                    
-                // Calculate the income for the selected period
-                const periodTaxableIncome = job.transactions
-                    .filter(tx => {
-                        const txDate = new Date(tx.date);
-                        return tx.type === 'income' && !tx.taxExempt && 
-                               txDate >= start && txDate <= end;
-                    })
-                    .reduce((sum, tx) => sum + tx.amount, 0);
+        // Track total net taxable income across all jobs for the selected period
+        let totalPeriodNetTaxableIncome = 0;
+        
+        // First pass: calculate period-specific net taxable income for each job
+        const jobTaxableIncomes = filteredJobs.map(job => {
+            // Calculate period-specific net taxable income
+            const periodIncome = job.transactions
+                .filter(tx => {
+                    const txDate = new Date(tx.date);
+                    return tx.type === 'income' && !tx.taxExempt &&
+                           txDate >= start && txDate <= end;
+                })
+                .reduce((sum, tx) => sum + tx.amount, 0);
                 
-                // Calculate proportional tax for this period (if there's income to tax)
-                if (yearlyTaxableIncome > 0) {
-                    const proportion = periodTaxableIncome / yearlyTaxableIncome;
-                    fedTaxSum += (job.tax.federal || 0) * proportion;
-                    stateTaxSum += (job.tax.state || 0) * proportion;
-                }
+            const periodExpenses = job.transactions
+                .filter(tx => {
+                    const txDate = new Date(tx.date);
+                    return tx.type === 'expense' &&
+                           txDate >= start && txDate <= end;
+                })
+                .reduce((sum, tx) => sum + tx.amount, 0);
+                
+            const periodNetTaxableIncome = periodIncome - periodExpenses;
+            
+            // Add to total period net taxable income
+            totalPeriodNetTaxableIncome += periodNetTaxableIncome;
+            
+            return {
+                job,
+                periodNetTaxableIncome,
+                periodIncome,
+                periodExpenses
+            };
+        });
+        
+        // Initialize tax amounts
+        let fedTaxSum = 0;
+        let stateTaxSum = 0;
+    
+        // Calculate taxes for the current period
+        jobTaxableIncomes.forEach(({ job, periodNetTaxableIncome, periodIncome, periodExpenses }) => {
+            // Recalculate taxes for this specific period
+            if (periodNetTaxableIncome !== 0) {
+                const periodTaxes = calculateTaxes(periodIncome, periodExpenses, state);
+                
+                // Sum up taxes
+                fedTaxSum += periodTaxes.federal;
+                stateTaxSum += periodTaxes.state;
             }
         });
         
+        // Set the calculated taxes for the current period
         setTotalTax({
             federal: fedTaxSum,
             state: stateTaxSum
@@ -607,7 +629,7 @@ const calculateFederalTax = (taxableIncome) => {
                 const txDate = new Date(tx.date);
                 // Check if transaction date is within the selected quarter/period bounds
                 if (txDate >= start && txDate <= end) {
-                    if (tx.type === 'income') {
+                    if (tx.type === 'income' && !tx.taxExempt) {
                         totals.income += tx.amount;
                     } else if (tx.type === 'expense') {
                         totals.expenses += tx.amount;

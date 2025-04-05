@@ -11,7 +11,7 @@
   },
   "expo": {
     "name": "Revlo - Revenue Flow",
-    "version": "2.1.0",
+    "version": "4.0.0",
     "extra": {
       "eas": {
         "projectId": "87a4bf12-e548-49ed-9d9f-fac23095b269"
@@ -23,19 +23,22 @@
     "ios": {
       "icon": "./assets/icon.png",
       "bundleIdentifier": "com.builtbypeter.expenseapp",
-      "buildNumber": "3"
+      "buildNumber": "3",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
-
     "plugins": [
       [
         "expo-notifications",
         {
           "icon": "./icon.png",
           "color": "#ffffff",
-          "sounds": ["./notif.wav"]
+          "sounds": [
+            "./notif.wav"
+          ]
         }
       ]
     ]
-
   }
 }
