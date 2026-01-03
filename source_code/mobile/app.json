@@ -1,17 +1,7 @@
 {
-  "app": {
-    "welcome_msg": "Welcome!",
-    "theme": {
-      "purple": "#6750a4",
-      "blue": "#849bff",
-      "creme": "#FFFFF1"
-    },
-    "api": "https://revlo-app.onrender.com",
-    "email": "TemplateApp@template.example"
-  },
   "expo": {
     "name": "Revlo - Revenue Flow",
-    "version": "4.0.0",
+    "version": "5.0.0",
     "extra": {
       "eas": {
         "projectId": "87a4bf12-e548-49ed-9d9f-fac23095b269"

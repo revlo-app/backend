@@ -4,7 +4,7 @@ import {
     TouchableWithoutFeedback, FlatList
 } from 'react-native';
 import { Card, Button } from 'react-native-paper';
-import config from '../app.json';
+import config from '../config.json';
 import { useFocusEffect } from '@react-navigation/native';
 
 const Clients = ({ userId, isNewUser}) => {

@@ -15,9 +15,9 @@ import * as Location from 'expo-location';
 
 
 
-import config from "./app.json"
+import config from "./config.json"
 const BASE_URL = config.app.api
-import Purchases from 'react-native-purchases';
+//import Purchases from 'react-native-purchases';
 
 
 
@@ -341,19 +341,19 @@ function logIn(token, isNewUser)
 
     // Allow purchasing subscriptions
     // this can happen as soon as we get the user id
-    try {
-      if (Platform.OS === 'ios')
-      {
-        await Purchases.configure({apiKey: APPL_API, appUserID: token})
-      }
-      else
-      {
-        await Purchases.configure({apiKey: GOOG_API, appUserID: token})
-      }
-    }
-    catch {
-      console.log("RevenueCat failed to initialize")
-    }
+    // try {
+    //   if (Platform.OS === 'ios')
+    //   {
+    //     await Purchases.configure({apiKey: APPL_API, appUserID: token})
+    //   }
+    //   else
+    //   {
+    //     await Purchases.configure({apiKey: GOOG_API, appUserID: token})
+    //   }
+    // }
+    // catch {
+    //   console.log("RevenueCat failed to initialize")
+    // }
     
     
     setAuthenticated(true)
@@ -367,51 +367,51 @@ function logIn(token, isNewUser)
 }
 
 // Purchase subscription
-const purchase = async () => {
-  try {
-      // Try to make the purchase
-      //Purchases.getOfferings()
-      products = await Purchases.getProducts(['cards']);
-      product = products[0]
-      //console.log(product)
-      try {
-        const {customerInfo, productIdentifier} = await Purchases.purchaseStoreProduct(product);
-        if (typeof customerInfo.entitlements.active['pro'] !== "undefined") {
-          // Successfull purchase, grant tokens
-          axios.post(`${BASE_URL}/newSubscriber`, {user_id: user._id})
-          .then((response) => {
-            // Update tokens locally
-            setTokens(response.data.tokens)
-            setSubscribed(true)
-            console.log("Subscribed!")
+// const purchase = async () => {
+//   try {
+//       // Try to make the purchase
+//       //Purchases.getOfferings()
+//       products = await Purchases.getProducts(['cards']);
+//       product = products[0]
+//       //console.log(product)
+//       try {
+//         const {customerInfo, productIdentifier} = await Purchases.purchaseStoreProduct(product);
+//         if (typeof customerInfo.entitlements.active['pro'] !== "undefined") {
+//           // Successfull purchase, grant tokens
+//           axios.post(`${BASE_URL}/newSubscriber`, {user_id: user._id})
+//           .then((response) => {
+//             // Update tokens locally
+//             setTokens(response.data.tokens)
+//             setSubscribed(true)
+//             console.log("Subscribed!")
 
-            // UI feedback here for subscription
+//             // UI feedback here for subscription
 
-          })
-          .catch((e) => {
-            // User was charged, but my server made an error
-            // issue refund / log the error
-            console.log(e)
-          })
-        }
-        else
-        {
-          //console.log("LOCKED")
-        }
-      } catch (e) {
-        if (!e.userCancelled) {
-          console.log(e)
-        }
-      }
+//           })
+//           .catch((e) => {
+//             // User was charged, but my server made an error
+//             // issue refund / log the error
+//             console.log(e)
+//           })
+//         }
+//         else
+//         {
+//           //console.log("LOCKED")
+//         }
+//       } catch (e) {
+//         if (!e.userCancelled) {
+//           console.log(e)
+//         }
+//       }
 
       
       
-  }
-  catch(e)
-  { // User canceled, no wifi etc
-      alert('Error Purchasing. You were not charged.')
-  }
-}
+//   }
+//   catch(e)
+//   { // User canceled, no wifi etc
+//       alert('Error Purchasing. You were not charged.')
+//   }
+// }
 
 
 

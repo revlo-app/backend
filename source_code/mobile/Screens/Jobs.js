@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, TextInput, ScrollView, Alert, Modal, TouchableOpacity, TouchableWithoutFeedback, Keyboard
 } from 'react-native';
-import config from '../app.json';
+import config from '../config.json';
 import { Card, Button, Divider, Menu, Provider, Checkbox } from 'react-native-paper';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import BouncyCheckbox from "react-native-bouncy-checkbox";
@@ -303,6 +303,30 @@ const calculateFederalTax = (taxableIncome) => {
 
         setFilteredJobs(filtered);
     }
+
+    // Helper function to get the most recent transaction date for a job
+    const getMostRecentTransactionDate = (job) => {
+        if (!job.transactions || job.transactions.length === 0) {
+            return new Date(0); // Return epoch time for jobs with no transactions
+        }
+        const dates = job.transactions.map(tx => new Date(tx.date));
+        return new Date(Math.max(...dates));
+    };
+
+    // Sort filtered jobs: "General" first, then by most recent transaction date
+    const getSortedJobs = () => {
+        const generalJobs = filteredJobs.filter(job => job.name === 'General');
+        const otherJobs = filteredJobs.filter(job => job.name !== 'General');
+        
+        // Sort other jobs by most recent transaction date (descending)
+        otherJobs.sort((a, b) => {
+            const dateA = getMostRecentTransactionDate(a);
+            const dateB = getMostRecentTransactionDate(b);
+            return dateB - dateA; // Most recent first
+        });
+        
+        return [...generalJobs, ...otherJobs];
+    };
 
     const formatDate = (date) => {
         const d = new Date(date);
@@ -751,13 +775,6 @@ const calculateFederalTax = (taxableIncome) => {
                             </Text>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                                 <Button 
-                                    mode="outlined" 
-                                    onPress={() => setShowDeleteConfirm(false)}
-                                    style={{ flex: 1, marginRight: 5 }}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button 
                                     mode="contained" 
                                     onPress={(e) => {e.preventDefault(); setShowDeleteConfirm(false); isJob? handleDeleteJob() : handleDeleteTransaction()}}
                                     style={{ flex: 1, marginLeft: 5 }}
@@ -810,87 +827,96 @@ const calculateFederalTax = (taxableIncome) => {
                 </View>
 
                 <ScrollView keyboardShouldPersistTaps='handled'>
-                    {filteredJobs.map(item => (
-                        <Swipeable
-                            key={item._id}
-                            ref={ref => swipeableRefs.current[item._id] = ref}
-                            renderLeftActions={() => (
+                    {getSortedJobs().map((item, index) => (
+                        <View key={item._id}>
+                            <Swipeable
+                                ref={ref => swipeableRefs.current[item._id] = ref}
+                                renderLeftActions={() => (
+                                    <View style={{ 
+                                        justifyContent: 'center', 
+                                        alignItems: 'center', 
+                                        width: 80, 
+                                        margin: 10, 
+                                        borderRadius: 10, 
+                                        padding: 3, 
+                                        backgroundColor: config.app.theme.purple 
+                                    }}>
+                                        <Text style={{ color: 'white' }}>Income</Text>
+                                    </View>
+                                )}
+                                renderRightActions={() => (
+                                    <View style={{ 
+                                        justifyContent: 'center', 
+                                        alignItems: 'center', 
+                                        width: 80, 
+                                        margin: 10, 
+                                        borderRadius: 10, 
+                                        padding: 3, 
+                                        backgroundColor: config.app.theme.purple 
+                                    }}>
+                                        <Text style={{ color: 'white' }}>Expense</Text>
+                                    </View>
+                                )}
+                                onSwipeableOpen={(direction) =>
+                                    handleSwipeRelease(direction !== 'right' ? 'income' : 'expense', item._id, item._id)
+                                }
+                            >
+                                <Card style={{ margin: 10, padding: 15 }} onPress={() => handleJobPress(item)}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{item.name}</Text>
+                                            <Text>{item.client}</Text>
+                                            <Text style={{ fontSize: 12, color: '#666', marginTop: 5 }}>
+                                                Tax: ${((item.tax?.federal || 0) + (item.tax?.state || 0)).toFixed(2)}
+                                            </Text>
+                                        </View>
+                                        <View style={{ alignItems: 'flex-end', minWidth: 80 }}>
+                                            <Text style={{ color: 'black' }}>
+                                                ${item.transactions
+                                                    .filter(tx => tx.type === 'income')
+                                                    .reduce((sum, tx) => sum + (tx.amount), 0)
+                                                    .toFixed(2)}
+                                            </Text>
+                                            <Text style={{ color: 'gray' }}>
+                                                ${item.transactions
+                                                    .filter(tx => tx.type === 'expense')
+                                                    .reduce((sum, tx) => sum + (tx.amount), 0)
+                                                    .toFixed(2)}
+                                            </Text>
+                                            <Text style={{ color: '#6750a4' }}>
+                                                ${(
+                                                    item.transactions
+                                                        .filter(tx => tx.type === 'income')
+                                                        .reduce((sum, tx) => sum + (tx.amount), 0) -
+                                                    item.transactions
+                                                        .filter(tx => tx.type === 'expense')
+                                                        .reduce((sum, tx) => sum + (tx.amount), 0)
+                                                ).toFixed(2)}
+                                            </Text>
+                                            <Text style={{ color: '#6750a4', fontSize: 12 }}>
+                                                Adj: ${(
+                                                    item.transactions
+                                                        .filter(tx => tx.type === 'income')
+                                                        .reduce((sum, tx) => sum + (tx.amount), 0) -
+                                                    item.transactions
+                                                        .filter(tx => tx.type === 'expense')
+                                                        .reduce((sum, tx) => sum + (tx.amount), 0) -
+                                                    ((item.tax?.federal || 0) + (item.tax?.state || 0))
+                                                ).toFixed(2)}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                </Card>
+                            </Swipeable>
+                            {item.name === 'General' && index === 0 && (
                                 <View style={{ 
-                                    justifyContent: 'center', 
-                                    alignItems: 'center', 
-                                    width: 80, 
-                                    margin: 10, 
-                                    borderRadius: 10, 
-                                    padding: 3, 
-                                    backgroundColor: config.app.theme.purple 
-                                }}>
-                                    <Text style={{ color: 'white' }}>Income</Text>
-                                </View>
+                                    height: 1, 
+                                    backgroundColor: '#ddd', 
+                                    marginHorizontal: 20, 
+                                    marginVertical: 5 
+                                }} />
                             )}
-                            renderRightActions={() => (
-                                <View style={{ 
-                                    justifyContent: 'center', 
-                                    alignItems: 'center', 
-                                    width: 80, 
-                                    margin: 10, 
-                                    borderRadius: 10, 
-                                    padding: 3, 
-                                    backgroundColor: config.app.theme.purple 
-                                }}>
-                                    <Text style={{ color: 'white' }}>Expense</Text>
-                                </View>
-                            )}
-                            onSwipeableOpen={(direction) =>
-                                handleSwipeRelease(direction !== 'right' ? 'income' : 'expense', item._id, item._id)
-                            }
-                        >
-                            <Card style={{ margin: 10, padding: 15 }} onPress={() => handleJobPress(item)}>
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{item.name}</Text>
-            <Text>{item.client}</Text>
-            <Text style={{ fontSize: 12, color: '#666', marginTop: 5 }}>
-                Tax: ${((item.tax?.federal || 0) + (item.tax?.state || 0)).toFixed(2)}
-            </Text>
-        </View>
-        <View style={{ alignItems: 'flex-end', minWidth: 80 }}>
-            <Text style={{ color: 'black' }}>
-                ${item.transactions
-                    .filter(tx => tx.type === 'income')
-                    .reduce((sum, tx) => sum + (tx.amount), 0)
-                    .toFixed(2)}
-            </Text>
-            <Text style={{ color: 'gray' }}>
-                ${item.transactions
-                    .filter(tx => tx.type === 'expense')
-                    .reduce((sum, tx) => sum + (tx.amount), 0)
-                    .toFixed(2)}
-            </Text>
-            <Text style={{ color: '#6750a4' }}>
-                ${(
-                    item.transactions
-                        .filter(tx => tx.type === 'income')
-                        .reduce((sum, tx) => sum + (tx.amount), 0) -
-                    item.transactions
-                        .filter(tx => tx.type === 'expense')
-                        .reduce((sum, tx) => sum + (tx.amount), 0)
-                ).toFixed(2)}
-            </Text>
-            <Text style={{ color: '#6750a4', fontSize: 12 }}>
-                Adj: ${(
-                    item.transactions
-                        .filter(tx => tx.type === 'income')
-                        .reduce((sum, tx) => sum + (tx.amount), 0) -
-                    item.transactions
-                        .filter(tx => tx.type === 'expense')
-                        .reduce((sum, tx) => sum + (tx.amount), 0) -
-                    ((item.tax?.federal || 0) + (item.tax?.state || 0))
-                ).toFixed(2)}
-            </Text>
-        </View>
-    </View>
-</Card>
-                        </Swipeable>
+                        </View>
                     ))}
 
                     {showModal && (
@@ -1010,18 +1036,18 @@ const calculateFederalTax = (taxableIncome) => {
                                                         multiline
                                                     />
 
-{selectedTransaction && selectedTransaction.type === 'income' && (
-    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 15 }}>
-    <BouncyCheckbox
-        isChecked={isTaxExempt}
-        onPress={() => setIsTaxExempt(!isTaxExempt)}
-        fillColor={config.app.theme.purple} // Checked color
-        unfillColor="#fff" // Background when unchecked
-        text="Tax Exempt"
-        textStyle={{ textDecorationLine: "none", marginLeft: 8 }}
-    />
-</View>
-)}
+                                                    {selectedTransaction && selectedTransaction.type === 'income' && (
+                                                        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 15 }}>
+                                                            <BouncyCheckbox
+                                                                isChecked={isTaxExempt}
+                                                                onPress={() => setIsTaxExempt(!isTaxExempt)}
+                                                                fillColor={config.app.theme.purple}
+                                                                unfillColor="#fff"
+                                                                text="Tax Exempt"
+                                                                textStyle={{ textDecorationLine: "none", marginLeft: 8 }}
+                                                            />
+                                                        </View>
+                                                    )}
 
                                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                                                         <Button 
@@ -1056,13 +1082,13 @@ const calculateFederalTax = (taxableIncome) => {
                                                             </Text>
                                                         </TouchableOpacity>
                                                         <TextInput
-    placeholder="Amount"
-    value={amount}
-    onChangeText={setAmount}
-    keyboardType="decimal-pad"
-    style={{ flex: 1, marginBottom: 10 }}
-    autoFocus
-/>
+                                                            placeholder="Amount"
+                                                            value={amount}
+                                                            onChangeText={setAmount}
+                                                            keyboardType="decimal-pad"
+                                                            style={{ flex: 1, marginBottom: 10 }}
+                                                            autoFocus
+                                                        />
                                                     </View>
                                                     <TextInput
                                                         placeholder="Add a note (optional)"
@@ -1071,18 +1097,18 @@ const calculateFederalTax = (taxableIncome) => {
                                                         style={{ marginBottom: 20 }}
                                                         multiline
                                                     />
-{modalType === 'income' && (
-    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 15 }}>
-    <BouncyCheckbox
-        isChecked={isTaxExempt}
-        onPress={() => setIsTaxExempt(!isTaxExempt)}
-        fillColor={config.app.theme.purple} // Checked color
-        unfillColor="#fff" // Background when unchecked
-        text="Tax Exempt"
-        textStyle={{ textDecorationLine: "none", marginLeft: 8 }}
-    />
-</View>
-)}
+                                                    {modalType === 'income' && (
+                                                        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 15 }}>
+                                                            <BouncyCheckbox
+                                                                isChecked={isTaxExempt}
+                                                                onPress={() => setIsTaxExempt(!isTaxExempt)}
+                                                                fillColor={config.app.theme.purple}
+                                                                unfillColor="#fff"
+                                                                text="Tax Exempt"
+                                                                textStyle={{ textDecorationLine: "none", marginLeft: 8 }}
+                                                            />
+                                                        </View>
+                                                    )}
                                                     <Button 
                                                         mode="contained" 
                                                         onPress={handleConfirm}
@@ -1173,3 +1199,4 @@ const calculateFederalTax = (taxableIncome) => {
 };
 
 export default Jobs;
+                                    

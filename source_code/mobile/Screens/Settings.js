@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Button, TextInput, Alert } from 'react-native';
 
 
-import config from "../app.json"
+import config from "../config.json"
 import * as Linking from 'expo-linking';
 
 const Settings = ({ userId }) => {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Button, FlatList, Alert } from 'react-native';
-import config from "../app.json"
+import config from "../config.json"
 const API_URL = config.app.api
 
 const Transactions = ({ userId }) => {

@@ -1,6 +1,6 @@
 // Navigation.js
 import React from 'react';
-import config from "../app.json"
+import config from "../config.json"
 import { NavigationContainer, DefaultTheme} from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';

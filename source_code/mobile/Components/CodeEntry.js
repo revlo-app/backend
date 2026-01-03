@@ -2,7 +2,7 @@
 import React from 'react';
 import { View, Text, Platform, TouchableOpacity, StyleSheet } from 'react-native';
 import CodeInput from 'react-native-confirmation-code-input';
-import config from "../app.json"
+import config from "../config.json"
 
 const CodeEntry = ({ fulfilled, status, back }) => {
 

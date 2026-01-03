@@ -3,7 +3,7 @@ import React, {useState, useEffect } from "react";
 import axios from "axios";
 import CodeEntry from "./CodeEntry";
 
-import config from '../app.json';
+import config from '../config.json';
 
 import {
   Keyboard,
@@ -11,11 +11,11 @@ import {
   Text,
   TextInput,
   TouchableWithoutFeedback,
+  TouchableOpacity,
   View,
   StyleSheet,
   Platform,
 } from "react-native";
-import { Button} from "react-native-elements";
 
 let Constants;
 let deviceInfoModule;
@@ -332,12 +332,13 @@ export default function LoginScreen(props) {
                 style={styles.loginFormTextInput}
                 onChangeText={(text) => {setPass2(text); setStatus((pass1 === text)? '': 'Passwords must match')}}
               />
-              <Button
-                buttonStyle={styles.loginButton}
+              <TouchableOpacity
+                style={[styles.loginButton, !((pass1 === pass2)) && styles.loginButtonDisabled]}
                 onPress={() => resetPassword()}
-                title="Change Password"
                 disabled={!((pass1 === pass2))}
-              />
+              >
+                <Text style={styles.loginButtonText}>Change Password</Text>
+              </TouchableOpacity>
   
   
   
@@ -378,12 +379,13 @@ export default function LoginScreen(props) {
                 style={styles.loginFormTextInput}
                 onChangeText={(text) => {setEmailv2(text); setStatus((emailv1 === text)? '': 'Please type the same email twice')}}
               />
-              <Button
-                buttonStyle={styles.loginButton}
+              <TouchableOpacity
+                style={[styles.loginButton, !(isEmail.test(emailv1) && isEmail.test(emailv2) && (emailv1 === emailv2)) && styles.loginButtonDisabled]}
                 onPress={() => sendResetPassCode()}
-                title="Send Reset Link"
                 disabled={!(isEmail.test(emailv1) && isEmail.test(emailv2) && (emailv1 === emailv2))}
-              />
+              >
+                <Text style={styles.loginButtonText}>Send Reset Link</Text>
+              </TouchableOpacity>
   
   
   
@@ -428,26 +430,29 @@ export default function LoginScreen(props) {
               onChangeText={(text) => {setPassword(text); setStatus('')}}
             />
 
-            <Button
-              buttonStyle={styles.loginButton}
+            <TouchableOpacity
+              style={[styles.loginButton, (loginInProgress || !(isEmail.test(email) && password)) && styles.loginButtonDisabled]}
               onPress={() => onLogRegPress()}
-              title="Login / Sign-up"
               disabled={loginInProgress || !(isEmail.test(email) && password)}
-            />
+            >
+              <Text style={styles.loginButtonText}>Login / Sign-up</Text>
+            </TouchableOpacity>
 
-            {/* <Button
-              buttonStyle={styles.loginButton}
+            {/* <TouchableOpacity
+              style={[styles.loginButton, !(isEmail.test(email) && password) && styles.loginButtonDisabled]}
               onPress={() => onLoginPress()}
-              title="Login"
               disabled={!(isEmail.test(email) && password)}
-            />
+            >
+              <Text style={styles.loginButtonText}>Login</Text>
+            </TouchableOpacity>
 
-            <Button
-              buttonStyle={styles.loginButton}
+            <TouchableOpacity
+              style={[styles.loginButton, !(isEmail.test(email) && password) && styles.loginButtonDisabled]}
               onPress={() => onRegisterPress()}
-              title="Register"
               disabled={!(isEmail.test(email) && password)}
-            /> */}
+            >
+              <Text style={styles.loginButtonText}>Register</Text>
+            </TouchableOpacity> */}
 
 
 
@@ -510,7 +515,17 @@ const styles = StyleSheet.create({
     height: Platform.OS === 'ios' && Platform.isPad ? 50 : 45 ,
     marginTop: 10,
     width: Platform.OS === 'ios' && Platform.isPad ? 450 : 350,
-    alignItems: "center"
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loginButtonDisabled: {
+    backgroundColor: "#b0d4f1",
+    opacity: 0.6,
+  },
+  loginButtonText: {
+    color: "#ffffff",
+    fontSize: Platform.OS === 'ios' && Platform.isPad ? 20 : 16,
+    fontWeight: "600",
   },
   container: {
     marginTop: 50,
