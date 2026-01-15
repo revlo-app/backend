@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-    View, Text, TextInput, ScrollView, Alert, Modal, TouchableOpacity, TouchableWithoutFeedback, Keyboard, Platform
+    View, Text, TextInput, ScrollView, Alert, Modal, TouchableOpacity, TouchableWithoutFeedback, Keyboard, Platform, KeyboardAvoidingView
 } from 'react-native';
 import config from '../config.json';
 import { Card, Button, Divider, Menu, Provider, Checkbox } from 'react-native-paper';
@@ -423,6 +423,7 @@ const calculateFederalTax = (taxableIncome) => {
             return;
         }
 
+        // Create transaction with taxExempt using ternary to match update logic exactly
         const transaction = {
             type: modalType,
             amount: parsedAmount * (isNegative ? -1 : 1),
@@ -1056,26 +1057,35 @@ const calculateFederalTax = (taxableIncome) => {
 
                     {showModal && (
                         <Modal transparent visible animationType="fade">
-                            <TouchableWithoutFeedback onPress={() => setShowModal(false)}>
-                                <View style={{
-                                    flex: 1,
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                    backgroundColor: 'rgba(0,0,0,0.5)'
-                                }}>
-                                    <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-                                        <View style={{
-                                            padding: 20,
-                                            width: '90%',
-                                            maxHeight: '80%',
-                                            borderRadius: 10,
-                                            backgroundColor: 'white',
-                                            shadowColor: "#000",
-                                            shadowOffset: { width: 0, height: 2 },
-                                            shadowOpacity: 0.25,
-                                            shadowRadius: 3.84,
-                                            elevation: 5
-                                        }}>
+                            <KeyboardAvoidingView
+                                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                                style={{ flex: 1 }}
+                            >
+                                <TouchableWithoutFeedback onPress={() => setShowModal(false)}>
+                                    <View style={{
+                                        flex: 1,
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        backgroundColor: 'rgba(0,0,0,0.5)'
+                                    }}>
+                                        <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                                            <View style={{
+                                                width: '90%',
+                                                maxHeight: '80%',
+                                                borderRadius: 10,
+                                                backgroundColor: 'white',
+                                                shadowColor: "#000",
+                                                shadowOffset: { width: 0, height: 2 },
+                                                shadowOpacity: 0.25,
+                                                shadowRadius: 3.84,
+                                                elevation: 5,
+                                                overflow: 'hidden'
+                                            }}>
+                                                <ScrollView
+                                                    contentContainerStyle={{ padding: 20 }}
+                                                    keyboardShouldPersistTaps='handled'
+                                                    showsVerticalScrollIndicator={true}
+                                                >
                                             {modalType === 'addJob' ? (
                                                 <>
                                                     <TextInput
@@ -1163,6 +1173,9 @@ const calculateFederalTax = (taxableIncome) => {
                                                             autoFocus
                                                         />
                                                     </View>
+
+                                                    
+
                                                     <TextInput
                                                         placeholder="Add a note (optional)"
                                                         value={note}
@@ -1170,13 +1183,38 @@ const calculateFederalTax = (taxableIncome) => {
                                                         style={{ marginBottom: 15 }}
                                                         multiline
                                                     />
+                                                    
+                                                    {selectedTransaction && selectedTransaction.type === 'income' && (
+                                                        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 15 }}>
+                                                            <BouncyCheckbox
+                                                                isChecked={isTaxExempt}
+                                                                onPress={() => setIsTaxExempt(!isTaxExempt)}
+                                                                fillColor={config.app.theme.purple}
+                                                                unfillColor="#fff"
+                                                                text="Tax Exempt"
+                                                                textStyle={{ textDecorationLine: "none", marginLeft: 8 }}
+                                                            />
+                                                        </View>
+                                                    )}
+                                                    {selectedTransaction && selectedTransaction.type === 'expense' && (
+                                                        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 15 }}>
+                                                            <BouncyCheckbox
+                                                                isChecked={isPaid}
+                                                                onPress={() => setIsPaid(!isPaid)}
+                                                                fillColor={config.app.theme.purple}
+                                                                unfillColor="#fff"
+                                                                text="Paid"
+                                                                textStyle={{ textDecorationLine: "none", marginLeft: 8 }}
+                                                            />
+                                                        </View>
+                                                    )}
 
                                                     <TouchableOpacity
                                                         onPress={() => setShowDatePicker(!showDatePicker)}
                                                         style={{
                                                             padding: 12,
                                                             borderWidth: 1,
-                                                            borderColor: '#ddd',
+                                                            borderColor: config.app.theme.purple,
                                                             borderRadius: 5,
                                                             marginBottom: 15,
                                                             backgroundColor: '#f9f9f9'
@@ -1197,10 +1235,10 @@ const calculateFederalTax = (taxableIncome) => {
                                                             <DateTimePicker
                                                                 value={selectedDate}
                                                                 mode="date"
-                                                                display="spinner"
+                                                                display="inline"
                                                                 onChange={onDateChange}
                                                                 maximumDate={new Date()}
-                                                                style={{ height: 180 }}
+                                                                style={{ height: 350 }}
                                                             />
                                                         </View>
                                                     )}
@@ -1215,18 +1253,7 @@ const calculateFederalTax = (taxableIncome) => {
                                                         />
                                                     )}
 
-                                                    {selectedTransaction && selectedTransaction.type === 'income' && (
-                                                        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 15 }}>
-                                                            <BouncyCheckbox
-                                                                isChecked={isTaxExempt}
-                                                                onPress={() => setIsTaxExempt(!isTaxExempt)}
-                                                                fillColor={config.app.theme.purple}
-                                                                unfillColor="#fff"
-                                                                text="Tax Exempt"
-                                                                textStyle={{ textDecorationLine: "none", marginLeft: 8 }}
-                                                            />
-                                                        </View>
-                                                    )}
+                                                    
 
                                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                                                         <Button
@@ -1277,6 +1304,31 @@ const calculateFederalTax = (taxableIncome) => {
                                                         multiline
                                                     />
 
+                                                    {modalType === 'income' && (
+                                                        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 15 }}>
+                                                            <BouncyCheckbox
+                                                                isChecked={isTaxExempt}
+                                                                onPress={() => setIsTaxExempt(!isTaxExempt)}
+                                                                fillColor={config.app.theme.purple}
+                                                                unfillColor="#fff"
+                                                                text="Tax Exempt"
+                                                                textStyle={{ textDecorationLine: "none", marginLeft: 8 }}
+                                                            />
+                                                        </View>
+                                                    )}
+                                                    {modalType === 'expense' && (
+                                                        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 15 }}>
+                                                            <BouncyCheckbox
+                                                                isChecked={isPaid}
+                                                                onPress={() => setIsPaid(!isPaid)}
+                                                                fillColor={config.app.theme.purple}
+                                                                unfillColor="#fff"
+                                                                text="Paid"
+                                                                textStyle={{ textDecorationLine: "none", marginLeft: 8 }}
+                                                            />
+                                                        </View>
+                                                    )}
+
                                                     <TouchableOpacity
                                                         onPress={() => setShowDatePicker(!showDatePicker)}
                                                         style={{
@@ -1303,7 +1355,7 @@ const calculateFederalTax = (taxableIncome) => {
                                                             <DateTimePicker
                                                                 value={selectedDate}
                                                                 mode="date"
-                                                                display="spinner"
+                                                                display="inline"
                                                                 onChange={onDateChange}
                                                                 maximumDate={new Date()}
                                                                 style={{ height: 180 }}
@@ -1321,30 +1373,7 @@ const calculateFederalTax = (taxableIncome) => {
                                                         />
                                                     )}
 
-                                                    {modalType === 'income' && (
-                                                        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 15 }}>
-                                                            <BouncyCheckbox
-                                                                isChecked={isTaxExempt}
-                                                                onPress={() => setIsTaxExempt(!isTaxExempt)}
-                                                                fillColor={config.app.theme.purple}
-                                                                unfillColor="#fff"
-                                                                text="Tax Exempt"
-                                                                textStyle={{ textDecorationLine: "none", marginLeft: 8 }}
-                                                            />
-                                                        </View>
-                                                    )}
-                                                    {modalType === 'expense' && (
-                                                        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 15 }}>
-                                                            <BouncyCheckbox
-                                                                isChecked={isPaid}
-                                                                onPress={() => setIsPaid(!isPaid)}
-                                                                fillColor={config.app.theme.purple}
-                                                                unfillColor="#fff"
-                                                                text="Paid"
-                                                                textStyle={{ textDecorationLine: "none", marginLeft: 8 }}
-                                                            />
-                                                        </View>
-                                                    )}
+                                                    
                                                     <Button
                                                         mode="contained"
                                                         onPress={handleConfirm}
@@ -1354,10 +1383,12 @@ const calculateFederalTax = (taxableIncome) => {
                                                     </Button>
                                                 </>
                                             )}
-                                        </View>
-                                    </TouchableWithoutFeedback>
-                                </View>
-                            </TouchableWithoutFeedback>
+                                                </ScrollView>
+                                            </View>
+                                        </TouchableWithoutFeedback>
+                                    </View>
+                                </TouchableWithoutFeedback>
+                            </KeyboardAvoidingView>
                         </Modal>
                     )}
                 </ScrollView>
