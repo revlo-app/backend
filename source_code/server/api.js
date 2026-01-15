@@ -398,7 +398,8 @@ router.post('/jobs/transaction', async (req, res) => {
           type: transaction.type,
           amount: transaction.amount,
           note: transaction.note || '',
-          date: transaction.date || new Date()
+          date: transaction.date || new Date(),
+          taxExempt: transaction.taxExempt || false
       });
 
       const updatedJob = await job.save();
