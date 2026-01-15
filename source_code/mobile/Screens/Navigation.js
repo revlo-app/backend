@@ -3,8 +3,7 @@ import React from 'react';
 import config from "../config.json"
 import { NavigationContainer, DefaultTheme} from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Icon from 'react-native-vector-icons/Ionicons';
-
+import { Ionicons } from '@expo/vector-icons'; // Changed this line
 import Transactions from './Transactions';
 import Jobs from './Jobs';
 import Settings from './Settings';
@@ -24,48 +23,37 @@ const MyTheme = {
   },
 };
 
-
 const Tab = createBottomTabNavigator();
 
-
-
-
-
 const Navigation = (props) => {
-
   return (
     <NavigationContainer theme={MyTheme}>
       <Tab.Navigator
         screenOptions={({ route }) => ({
           tabBarIcon: ({ focused, color, size }) => {
             let iconName;
-            
             if (route.name === 'Jobs') {
               iconName = focused ? 'construct' : 'construct-outline';
             } else if (route.name === 'Transactions') {
               iconName = focused ? 'card' : 'card-outline';
-            }
-            else if (route.name === 'Settings') {
+            } else if (route.name === 'Settings') {
               iconName = focused ? 'settings' : 'settings-outline';
-            }else if (route.name === 'Clients') {
+            } else if (route.name === 'Clients') {
               iconName = focused ? 'person' : 'person-outline';
             }
-            
-            return <Icon name={iconName} size={size} color={color} />;
+            return <Ionicons name={iconName} size={size} color={color} />; // Changed Icon to Ionicons
           }
-      
           //headerShown: false, // Hide the header if not needed
         })}
       >
         {/* <Tab.Screen name="Transactions" children={()=>
             <Transactions userId = {props.uid}/>}/> */}
         <Tab.Screen name="Jobs" children={()=>
-            <JobsWithTutorial rates = {props.rates} setTriggerEffect = {props.setTriggerEffect} setIsNewUser = {props.setIsNewUser} userId = {props.uid} state = {props.state} isNewUser = {props.isNewUser}/>}/>
+          <JobsWithTutorial rates = {props.rates} setTriggerEffect = {props.setTriggerEffect} setIsNewUser = {props.setIsNewUser} userId = {props.uid} state = {props.state} isNewUser = {props.isNewUser}/>}/>
         <Tab.Screen name="Clients" children={()=>
           <Clients userId = {props.uid} isNewUser={props.isNewUser}></Clients>}/>
-        
         <Tab.Screen name="Settings" children={()=>
-            <Preferences state = {props.state} setState = {props.setState} userId = {props.uid} deleteAccount = {props.deleteAccount} logout = {props.logout}/>}/>
+          <Preferences state = {props.state} setState = {props.setState} userId = {props.uid} deleteAccount = {props.deleteAccount} logout = {props.logout}/>}/>
       </Tab.Navigator>
     </NavigationContainer>
   );

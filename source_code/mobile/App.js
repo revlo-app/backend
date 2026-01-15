@@ -437,7 +437,7 @@ if (showSplash)
       <GestureHandlerRootView style={{ flex: 1 }}>
       <PaperProvider>
           {/* Navigation is the actual Screen which gets displayed based on the tab cosen */}
-          <Navigation rates = {rates} setTriggerEffect= {setTriggerEffect} setIsNewUser = {setIsNewUser} isNewUser = {isNewUser}state = {state} setState={updateState} uid = {user._id} help = {showHelpModal} deleteAccount = {deleteAccount} subscribed = {subscribed} purchase = {purchase} logout = {logOut} tokens = {tokens}></Navigation>
+          <Navigation rates = {rates} setTriggerEffect= {setTriggerEffect} setIsNewUser = {setIsNewUser} isNewUser = {isNewUser}state = {state} setState={updateState} uid = {user._id} help = {showHelpModal} deleteAccount = {deleteAccount} subscribed = {subscribed} logout = {logOut} tokens = {tokens}></Navigation>
           
           <ConfettiScreen
             trigger={triggerEffect}
