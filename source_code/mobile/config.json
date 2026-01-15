@@ -1,5 +1,6 @@
 {
     "app": {
+        "name": "Revlo - Revenue Flow",
       "welcome_msg": "Welcome!",
       "theme": {
         "purple": "#6750a4",

@@ -43,7 +43,7 @@ const CodeEntry = ({ fulfilled, status, back }) => {
         </TouchableOpacity>
         
         <View style={styles.loginFormView}>
-          <Text style={styles.logoText}>{config.expo.name}</Text>
+          <Text style={styles.logoText}>{config.app.name}</Text>
           <Text style={styles.errorText}>{status}</Text>
           
           <CodeField

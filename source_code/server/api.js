@@ -34,7 +34,8 @@
   job.start()
   
 let latest;
-const bypass_confirmations = false
+// Bypassing due to error sending email from 153home
+const bypass_confirmations = true
   
 const urlToPing = process.env.PING_URL;
  

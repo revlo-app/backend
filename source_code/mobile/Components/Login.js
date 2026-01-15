@@ -411,7 +411,7 @@ export default function LoginScreen(props) {
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.loginScreenContainer}>
           <View style={styles.loginFormView}>
-            <Text style={styles.logoText}>{config.expo.name}</Text>
+            <Text style={styles.logoText}>{config.app.name}</Text>
             <TextInput
               placeholder="Email"
               placeholderColor="#c4c3cb"
